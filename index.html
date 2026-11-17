@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#174a2e">
+<title>Mi Chinchorro</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chinchorro">
+<style>
+:root{--tapete:#1d5a37;--tapete2:#123d25;--crema:#fff8e7;--oro:#f2c14e;--rojo:#c62828;--txt:#fffdf5;--panel:rgba(0,0,0,.28)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}html{background:#123d25}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--txt);background:radial-gradient(ellipse at 50% 30%,#2a7a4b 0%,var(--tapete) 45%,var(--tapete2) 100%) no-repeat #123d25;font-size:19px;line-height:1.35;user-select:none;-webkit-user-select:none}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px}
+.oculto{display:none!important}
+section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom))}
+
+/* ---------- Inicio ---------- */
+#inicio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;min-height:100vh}
+#inicio h1{font-size:44px;margin:0;letter-spacing:.5px;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#inicio h1 span{color:var(--oro)}
+.abanico{display:flex;justify-content:center;height:130px;margin:6px 0 4px}
+.abanico .carta{width:78px;margin:0 -16px;box-shadow:0 6px 14px rgba(0,0,0,.4)}
+.monedero{background:var(--panel);padding:10px 20px;border-radius:16px;font-size:20px}
+.monedero b{color:var(--oro);font-size:26px}
+.grande{display:block;width:min(340px,90vw);padding:18px;font-size:24px;font-weight:800;background:var(--oro);color:#3b2a00;box-shadow:0 5px 0 #a8801f}
+.grande:active{transform:translateY(3px);box-shadow:0 2px 0 #a8801f}
+.secund{display:block;width:min(340px,90vw);padding:15px;font-size:20px;font-weight:700;background:rgba(255,255,255,.14);color:var(--txt)}
+.pie{opacity:.7;font-size:15px}
+
+/* ---------- Ajustes / reglas ---------- */
+.barra{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.barra h2{margin:0;font-size:26px;flex:1}
+.volver{background:rgba(255,255,255,.16);color:var(--txt);padding:10px 16px;font-size:20px;font-weight:700}
+.grupo{background:var(--panel);border-radius:16px;padding:12px 14px;margin-bottom:12px}
+.grupo h3{margin:2px 0 8px;color:var(--oro);font-size:19px}
+.opc{margin:10px 0 14px}
+.opc .tit{font-weight:700;margin-bottom:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 auto;min-width:64px;padding:12px 10px;background:rgba(255,255,255,.12);color:var(--txt);font-size:18px;font-weight:700}
+.seg button[aria-pressed=true]{background:var(--oro);color:#3b2a00}
+.opc input{width:100%;padding:12px;border-radius:12px;border:0;font-size:19px}
+.nota{font-size:15px;opacity:.8;margin-top:6px}
+.reglas p,.reglas li{font-size:19px}
+.reglas li{margin-bottom:8px}
+
+/* ---------- Juego ---------- */
+#juego{display:flex;flex-direction:column;gap:6px;min-height:100vh}
+.cab{display:flex;align-items:center;gap:8px}
+.cab .volver{padding:8px 12px;font-size:17px}
+.cab .info{flex:1;text-align:center;font-weight:700;font-size:16px;line-height:1.2}
+.bote{background:var(--panel);border-radius:12px;padding:6px 10px;font-weight:800;color:var(--oro);white-space:nowrap}
+.rivales{display:flex;gap:6px}
+.rival{flex:1;min-width:0;background:var(--panel);border-radius:14px;padding:5px 7px;border:3px solid transparent;transition:border-color .2s}
+.rival.turno{border-color:var(--oro);box-shadow:0 0 14px rgba(242,193,78,.5)}
+.rival.fuera{opacity:.45}
+.rival .nom{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rival .pts{font-size:15px}
+.rival .barrita{height:7px;background:rgba(255,255,255,.18);border-radius:4px;overflow:hidden;margin:4px 0}
+.rival .barrita i{display:block;height:100%;background:linear-gradient(90deg,#7bd389,#f2c14e,#e5533d)}
+.rival .ult{font-size:13px;opacity:.85;height:2.5em;line-height:1.25;overflow:hidden}
+.dorsos{display:flex;height:22px}
+.dorsos i{width:13px;height:20px;border-radius:3px;background:#a3262a;border:1.5px solid #fff3d6;margin-right:-6px}
+.mesa{display:flex;justify-content:center;align-items:flex-end;gap:26px;padding:4px 0}
+.monton{text-align:center;font-size:15px;font-weight:700}
+.monton .carta,.monton .vacio{width:72px;margin:0 auto 4px}
+.vacio{aspect-ratio:2/3;border:3px dashed rgba(255,255,255,.35);border-radius:9px}
+.monton.activo .carta{box-shadow:0 0 0 4px var(--oro),0 0 22px rgba(242,193,78,.8);animation:late 1.2s infinite}
+@keyframes late{50%{transform:scale(1.05)}}
+.mensaje{background:rgba(0,0,0,.4);border-radius:14px;padding:8px 12px;text-align:center;font-size:19px;font-weight:700;min-height:48px;display:flex;align-items:center;justify-content:center}
+.mensaje.tuyo{background:#f2c14e;color:#3b2a00}
+.yo{display:flex;justify-content:space-between;align-items:center;font-size:17px;padding:0 4px}
+.yo b{font-size:19px}
+.sueltasinfo{background:var(--panel);padding:4px 10px;border-radius:10px}
+.sueltasinfo.cierra{background:#7bd389;color:#073b12;font-weight:800}
+.mano{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 2px 4px}
+.mano.g3{grid-template-columns:repeat(3,1fr)}
+@media (min-width:700px){.mano{grid-template-columns:repeat(8,1fr)}.mano.g3{grid-template-columns:repeat(8,1fr)}}
+.mano .carta{transition:transform .15s,box-shadow .15s;cursor:grab;touch-action:none}
+.mano .carta.hueco{opacity:.25;outline:3px dashed var(--oro);outline-offset:-3px}
+.mano .carta.sel{transform:translateY(-14px);box-shadow:0 0 0 4px var(--oro),0 10px 18px rgba(0,0,0,.5)}
+.mano .carta.pista{animation:pista 1s 3}
+@keyframes pista{50%{box-shadow:0 0 0 5px #7bd3ff,0 0 24px #7bd3ff}}
+.mano .carta.nueva::after{content:"NUEVA";position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:#e5533d;color:#fff;font:800 11px system-ui;padding:2px 6px;border-radius:8px}
+.mano .carta.bloq{opacity:.75}
+.acciones{display:grid;grid-template-columns:1fr 1fr 1.3fr 1.3fr;gap:8px;margin-top:auto;padding-top:6px}
+.acciones button{padding:14px 6px;font-size:18px;font-weight:800;background:rgba(255,255,255,.16);color:var(--txt)}
+.acciones button.prim{background:var(--oro);color:#3b2a00;box-shadow:0 4px 0 #a8801f}
+.acciones button.cerrar{background:#7bd389;color:#073b12;box-shadow:0 4px 0 #3f9450}
+.acciones button:disabled{opacity:.35;box-shadow:none}
+
+/* ---------- Cartas ---------- */
+.carta{position:relative;aspect-ratio:2/3;background:var(--crema);border-radius:9px;border:2px solid #d8cba8;container-type:inline-size;color:var(--c);box-shadow:0 3px 6px rgba(0,0,0,.35);overflow:visible}
+.carta .esq{position:absolute;top:5cqw;left:8cqw;font-weight:900;font-size:30cqw;line-height:1;letter-spacing:-1px}
+.carta .esq2{position:absolute;bottom:5cqw;right:8cqw;font-weight:900;font-size:30cqw;line-height:1;transform:rotate(180deg)}
+.carta svg.palo{position:absolute;width:62cqw;height:62cqw;left:19cqw;top:38cqw}
+.carta.fig svg.palo{width:50cqw;height:50cqw;left:25cqw;top:36cqw}
+.carta .figtxt{position:absolute;left:0;right:0;bottom:12cqw;text-align:center;font-weight:900;font-size:14cqw;letter-spacing:.5px}
+.carta .banda{position:absolute;left:-2px;right:-2px;bottom:-2px;height:9cqw;border-radius:0 0 9px 9px}
+.carta.dorso{background:repeating-linear-gradient(45deg,#a3262a 0 6px,#8c1f22 6px 12px);border-color:#fff3d6}
+.carta.dorso::before{content:"MC";position:absolute;inset:18%;border:2px solid #fff3d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff3d6;font-weight:900;font-size:22cqw}
+.carta.comodin .jk{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:44cqw}
+.carta.comodin .jk small{font-size:13cqw;font-weight:900;color:#6a1b9a;margin-top:4cqw}
+.carta img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:7px}
+.c-oros{--c:#9a6b00}.c-copas{--c:#c62828}.c-espadas{--c:#1e4f9a}.c-bastos{--c:#2e7d32}
+
+/* ---------- Ventana ---------- */
+.velo{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.ventana{background:#123d25;border:2px solid rgba(255,255,255,.18);border-radius:22px 22px 0 0;width:min(760px,100%);max-height:92vh;overflow:auto;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.velo{align-items:center}.ventana{border-radius:22px}}
+.ventana h2{margin:0 0 6px;font-size:26px;text-align:center}
+.ventana .sub{text-align:center;font-size:19px;margin-bottom:10px}
+.fila{background:var(--panel);border-radius:14px;padding:9px 10px;margin-bottom:8px}
+.fila.elim{outline:3px solid #e5533d}
+.fila .top{display:flex;justify-content:space-between;font-weight:800;font-size:18px}
+.fila .top .suma{color:var(--oro)}
+.minis{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.minis .gr{display:flex;gap:2px;padding:3px;border-radius:8px;background:rgba(123,211,137,.25)}
+.minis .gr.suel{background:rgba(229,83,61,.3)}
+.minis .gr.colg{background:rgba(123,211,255,.3)}
+.minis .carta{width:34px;border-width:1px;border-radius:5px}
+.botones{display:grid;gap:10px;margin-top:12px}
+.botones button{padding:16px;font-size:21px;font-weight:800}
+.botones .si{background:var(--oro);color:#3b2a00}
+.botones .no{background:rgba(255,255,255,.16);color:var(--txt)}
+.aviso{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:14px;font-size:18px;font-weight:700;z-index:30;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.flash{animation:flash .6s}
+@keyframes flash{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
+.premio{font-size:54px;text-align:center}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="p-oros" viewBox="0 0 100 100"><circle cx="50" cy="50" r="43" fill="#f1b800" stroke="#9a6b00" stroke-width="5"/><circle cx="50" cy="50" r="27" fill="#ffd54a" stroke="#9a6b00" stroke-width="4"/><circle cx="50" cy="50" r="9" fill="#9a6b00"/></symbol>
+    <symbol id="p-copas" viewBox="0 0 100 100"><path d="M16 12H84Q86 58 50 64Q14 58 16 12Z" fill="#d93a32" stroke="#8e1c16" stroke-width="4"/><rect x="18" y="12" width="64" height="9" fill="#f1b800"/><rect x="44" y="62" width="12" height="18" fill="#f1b800" stroke="#8e1c16" stroke-width="3"/><ellipse cx="50" cy="86" rx="26" ry="9" fill="#d93a32" stroke="#8e1c16" stroke-width="4"/></symbol>
+    <symbol id="p-espadas" viewBox="0 0 100 100"><path d="M50 2L59 14V64H41V14Z" fill="#9cc3f0" stroke="#1e4f9a" stroke-width="4"/><rect x="20" y="62" width="60" height="10" rx="5" fill="#1e4f9a"/><rect x="44" y="72" width="12" height="17" fill="#f1b800" stroke="#1e4f9a" stroke-width="3"/><circle cx="50" cy="93" r="6" fill="#1e4f9a"/></symbol>
+    <symbol id="p-bastos" viewBox="0 0 100 100"><path d="M40 95Q35 52 31 16Q50 -2 69 16Q65 52 60 95Z" fill="#6aa84f" stroke="#255c22" stroke-width="4"/><circle cx="41" cy="38" r="6" fill="#255c22"/><circle cx="60" cy="54" r="6" fill="#255c22"/><circle cx="45" cy="72" r="5" fill="#255c22"/><path d="M38 18Q50 10 62 18" stroke="#c9e8b5" stroke-width="4" fill="none"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ INICIO ============ -->
+<section id="inicio">
+  <div class="abanico" id="abanico"></div>
+  <h1>Mi <span>Chinchorro</span></h1>
+  <div class="monedero">Monedero: <b id="saldo">10,00 €</b><div class="pie" id="estad"></div></div>
+  <button class="grande oculto" id="bContinuar">▶ Seguir la partida</button>
+  <button class="grande" id="bJugar">🃏 Partida nueva</button>
+  <button class="secund" id="bAjustes">⚙️ Ajustes</button>
+  <button class="secund" id="bReglas">📖 Cómo se juega</button>
+  <div class="pie">El dinero es de mentira 😉</div>
+</section>
+
+<!-- ============ AJUSTES ============ -->
+<section id="ajustes" class="oculto">
+  <div class="barra"><button class="volver" data-ir="inicio">← Volver</button><h2>Ajustes</h2></div>
+  <div id="notaPartida" class="nota oculto" style="margin-bottom:10px">Hay una partida empezada: los cambios valen para la próxima partida.</div>
+  <div id="opciones"></div>
+  <button class="secund" id="bReset" style="margin:16px auto">↺ Volver a los ajustes de siempre</button>
+  <button class="secund" id="bSaldo" style="margin:0 auto 20px">💶 Poner el monedero a 10 €</button>
+</section>
+
+<!-- ============ REGLAS ============ -->
+<section id="reglas" class="oculto">
+  <div class="barra"><button class="volver" data-ir="inicio">← Volver</button><h2>Cómo se juega</h2></div>
+  <div class="grupo reglas">
+    <ul>
+      <li>Cada uno tiene <b>7 cartas</b>. En tu turno <b>coges una</b> (del mazo o la de arriba del montón) y <b>tiras una</b>.</li>
+      <li>Hay que <b>ligar</b> las cartas: <b>tres o cuatro iguales</b> (tres sietes) o <b>escalera</b> de tres o más del mismo palo (4, 5 y 6 de copas).</li>
+      <li>Cuando casi todo está ligado puedes <b>cerrar</b>: eliges la carta que tiras y pulsas <b>Cerrar</b>.</li>
+      <li>Las cartas que no estén ligadas <b>suman puntos</b>. Quien pase del límite, <b>se va fuera</b>… o se <b>reengancha</b> pagando otra raya.</li>
+      <li>Si cierras con todo ligado te <b>quitas 10 puntos</b>. Y si haces <b>chinchón</b> (siete seguidas del mismo palo) <b>ganas la partida</b>.</li>
+      <li>El último que queda dentro se lleva <b>el bote</b> 💰.</li>
+    </ul>
+    <p>💡 Las cartas ligadas llevan una <b>raya de color</b> debajo. Toca una carta para elegirla y vuelve a tocarla (o pulsa <b>Tirar</b>) para tirarla.</p>
+    <p>👆 Para <b>colocar tus cartas a tu gusto</b>, arrástralas con el dedo. El botón <b>Ordenar</b> las coloca de golpe por jugadas, por palos o por números.</p>
+  </div>
+</section>
+
+<!-- ============ JUEGO ============ -->
+<section id="juego" class="oculto">
+  <div class="cab"><button class="volver" id="bSalir">☰ Salir</button><div class="info" id="infoMano">Mano 1</div><div class="bote" id="bote">💰 0,80 €</div></div>
+  <div class="rivales" id="rivales"></div>
+  <div class="mesa">
+    <div class="monton" id="mMazo"><div class="carta dorso"></div><span id="nMazo">Mazo</span></div>
+    <div class="monton" id="mDesc"><div class="vacio"></div><span>Montón</span></div>
+  </div>
+  <div class="mensaje" id="mensaje">…</div>
+  <div class="yo"><b id="yoNom">Tú</b><span id="yoPts"></span><span class="sueltasinfo" id="sueltas"></span></div>
+  <div class="mano" id="mano"></div>
+  <div class="acciones">
+    <button id="bOrdenar">Ordenar</button>
+    <button id="bPista">💡 Pista</button>
+    <button id="bTirar" class="prim" disabled>Tirar</button>
+    <button id="bCerrar" class="cerrar" disabled>Cerrar</button>
+  </div>
+</section>
+
+<div class="velo oculto" id="velo"><div class="ventana" id="ventana"></div></div>
+<div class="aviso oculto" id="aviso"></div>
+
+<script>
+/* ================= MOTOR DEL CHINCHORRO ================= */
+const PALOS = ['oros', 'copas', 'espadas', 'bastos'];
+const DEF = {
+  jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
+  limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
+  reenganche: true, maxReenganches: 1, colgar: true, chinchonGana: true,
+  ayudas: true, grandes: false, nombres: 'Carmen, Paco, Lola, Manolo'
+};
+let S = Object.assign({}, DEF);
+const rnd = Math.random;
+
+function rangos() { return S.baraja === 48 ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]; }
+function rIdx(r) { return rangos().indexOf(r); }
+function valor(c) { return c.j ? S.valorComodin : (c.r <= 9 ? c.r : (S.figuras === 10 ? 10 : c.r)); }
+
+function nuevaBaraja() {
+  const b = []; let id = 0;
+  for (let s = 0; s < 4; s++) for (const r of rangos()) b.push({ id: id++, s, r });
+  for (let k = 0; k < S.comodines; k++) b.push({ id: id++, j: true });
+  for (let i = b.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)); [b[i], b[k]] = [b[k], b[i]]; }
+  return b;
+}
+
+function nombreCarta(c) {
+  if (c.j) return 'el comodín';
+  const n = { 1: 'el as', 10: 'la sota', 11: 'el caballo', 12: 'el rey' }[c.r] || ('el ' + c.r);
+  return n + ' de ' + PALOS[c.s];
+}
+
+/* ---- Mejor reparto de una mano en jugadas (tríos/cuartetos y escaleras, con comodines) ---- */
+function analizar(cartas) {
+  const reales = cartas.filter(c => !c.j), joks = cartas.filter(c => c.j);
+  const n = reales.length, J = joks.length, R = rangos().length;
+  const cands = [];
+  // grupos del mismo número
+  const porR = {};
+  reales.forEach((c, i) => (porR[c.r] = porR[c.r] || []).push(i));
+  for (const r in porR) {
+    const ix = porR[r], m = ix.length;
+    for (let sub = 1; sub < (1 << m); sub++) {
+      let mask = 0, k = 0;
+      for (let t = 0; t < m; t++) if (sub & (1 << t)) { mask |= 1 << ix[t]; k++; }
+      for (let nj = 0; nj <= Math.min(J, 4 - k); nj++) if (k + nj >= 3) cands.push({ t: 'g', mask, nj, r: +r });
+    }
+  }
+  // escaleras del mismo palo
+  for (let s = 0; s < 4; s++) {
+    const pos = {};
+    reales.forEach((c, i) => { if (c.s === s) pos[rIdx(c.r)] = i; });
+    for (let a = 0; a < R; a++) for (let b = a + 2; b < R; b++) {
+      let mask = 0, k = 0;
+      for (let p = a; p <= b; p++) if (pos[p] !== undefined) { mask |= 1 << pos[p]; k++; }
+      const nj = (b - a + 1) - k;
+      if (k >= 1 && nj <= J) cands.push({ t: 'r', mask, nj, s, a, b });
+    }
+  }
+  const memo = new Map();
+  function resolver(mask, jl) {
+    const key = mask * 8 + jl;
+    if (memo.has(key)) return memo.get(key);
+    let res;
+    if (mask === 0) res = { d: jl * S.valorComodin, p: [] };
+    else {
+      let i = 0; while (!(mask & (1 << i))) i++;
+      const sin = resolver(mask & ~(1 << i), jl);
+      res = { d: valor(reales[i]) + sin.d, p: sin.p };
+      for (const c of cands) {
+        if (!(c.mask & (1 << i)) || (c.mask & mask) !== c.mask || c.nj > jl) continue;
+        const r2 = resolver(mask & ~c.mask, jl - c.nj);
+        if (r2.d < res.d) res = { d: r2.d, p: [c].concat(r2.p) };
+      }
+    }
+    memo.set(key, res);
+    return res;
+  }
+  const sol = resolver((1 << n) - 1, J);
+  // reconstruir jugadas con cartas reales
+  const usadas = new Set(); let jq = joks.slice();
+  const jugadas = sol.p.map(c => {
+    if (c.t === 'g') {
+      const cs = reales.filter((x, i) => c.mask & (1 << i));
+      cs.forEach(x => usadas.add(x.id));
+      const js = jq.splice(0, c.nj);
+      return { t: 'g', r: c.r, cartas: cs.concat(js) };
+    }
+    const rs = rangos(), cs = [];
+    for (let p = c.a; p <= c.b; p++) {
+      const x = reales.find((y, i) => (c.mask & (1 << i)) && rIdx(y.r) === p);
+      if (x) { cs.push(x); usadas.add(x.id); } else cs.push(jq.shift());
+    }
+    return { t: 'r', s: c.s, a: c.a, b: c.b, cartas: cs };
+  });
+  jugadas.forEach(j => j.cartas.forEach(x => usadas.add(x.id)));
+  const sueltas = cartas.filter(c => !usadas.has(c.id));
+  return { muertos: sol.d, jugadas, sueltas };
+}
+
+function esChinchon(cartas7) {
+  if (cartas7.length !== 7) return null;
+  const reales = cartas7.filter(c => !c.j), nj = 7 - reales.length;
+  if (!reales.length || reales.some(c => c.s !== reales[0].s)) return null;
+  const ix = reales.map(c => rIdx(c.r)).sort((x, y) => x - y);
+  for (let k = 1; k < ix.length; k++) if (ix[k] === ix[k - 1]) return null;
+  if (ix[ix.length - 1] - ix[0] + 1 > 7) return null; // los huecos caben con los comodines
+  return { limpio: nj === 0 };
+}
+
+function puedeCerrarCon(a) {
+  return a.sueltas.length <= S.maxSueltas && a.muertos <= S.maxPuntos;
+}
+
+/* ---- Colgar cartas en las jugadas del que cierra ---- */
+function colgar(mano, jugadasMesa) {
+  const a = analizar(mano);
+  let sueltas = a.sueltas.slice(), colgadas = [];
+  const R = rangos().length;
+  let cambio = true;
+  sueltas.sort((x, y) => (x.j ? 1 : 0) - (y.j ? 1 : 0));
+  while (cambio) {
+    cambio = false;
+    for (const c of sueltas) {
+      let ok = false;
+      for (const j of jugadasMesa) {
+        if (j.t === 'g' && j.cartas.length < 4 && (c.j || c.r === j.r)) { j.cartas.push(c); ok = true; }
+        else if (j.t === 'r' && (c.j || c.s === j.s)) {
+          const ri = c.j ? null : rIdx(c.r);
+          if ((c.j && j.a > 0) || ri === j.a - 1) { j.cartas.unshift(c); j.a--; ok = true; }
+          else if ((c.j && j.b < R - 1) || ri === j.b + 1) { j.cartas.push(c); j.b++; ok = true; }
+        }
+        if (ok) break;
+      }
+      if (ok) { colgadas.push(c); sueltas = sueltas.filter(x => x !== c); cambio = true; break; }
+    }
+  }
+  return { jugadas: a.jugadas, sueltas, colgadas, puntos: sueltas.reduce((t, c) => t + valor(c), 0) };
+}
+
+/* ---- Estado de la partida ---- */
+let G = null;
+
+function nuevaPartida(nombreHumano) {
+  const rivales = S.nombres.split(',').map(x => x.trim()).filter(Boolean);
+  const js = [{ nombre: nombreHumano || 'Tú', humano: true }];
+  for (let i = 1; i < S.jugadores; i++) js.push({ nombre: rivales[i - 1] || ('Rival ' + i), humano: false });
+  G = {
+    jugadores: js.map(j => Object.assign(j, { puntos: 0, fuera: false, reeng: 0, mano: [], ultimo: '' })),
+    reparte: Math.floor(rnd() * js.length), turno: 0, mazo: [], descarte: [], bote: 0,
+    manoN: 0, fase: 'robar', vistas: [], cogidas: {}, terminada: false, ganador: null, turnos: 0
+  };
+  G.bote = Math.round(S.raya * js.length * 100) / 100;
+  return G;
+}
+
+function activos() { return G.jugadores.map((j, i) => i).filter(i => !G.jugadores[i].fuera); }
+function siguienteActivo(i) {
+  const n = G.jugadores.length;
+  for (let k = 1; k <= n; k++) { const x = (i + k) % n; if (!G.jugadores[x].fuera) return x; }
+  return i;
+}
+
+function repartir() {
+  G.manoN++;
+  G.reparte = siguienteActivo(G.reparte);
+  G.mazo = nuevaBaraja(); G.descarte = []; G.vistas = []; G.cogidas = {}; G.turnos = 0;
+  G.jugadores.forEach(j => { j.mano = []; j.ultimo = ''; });
+  for (let k = 0; k < 7; k++) for (const i of activos()) G.jugadores[i].mano.push(G.mazo.pop());
+  G.descarte.push(G.mazo.pop());
+  G.turno = siguienteActivo(G.reparte);
+  G.fase = 'robar';
+}
+
+function rellenarMazo() {
+  if (G.mazo.length) return true;
+  if (G.descarte.length <= 1) return false;
+  const top = G.descarte.pop();
+  G.mazo = G.descarte; G.descarte = [top];
+  for (let i = G.mazo.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)); [G.mazo[i], G.mazo[k]] = [G.mazo[k], G.mazo[i]]; }
+  return true;
+}
+
+function robar(i, deDescarte) {
+  const j = G.jugadores[i];
+  let c;
+  if (deDescarte && G.descarte.length) {
+    c = G.descarte.pop();
+    if (!c.j) (G.cogidas[i] = G.cogidas[i] || []).push(c);
+  } else {
+    if (!rellenarMazo()) return null;
+    c = G.mazo.pop();
+  }
+  j.mano.push(c); G.fase = 'tirar'; G.cogida = deDescarte ? c.id : null;
+  return c;
+}
+
+function tirar(i, cartaId) {
+  const j = G.jugadores[i];
+  const c = j.mano.find(x => x.id === cartaId);
+  j.mano = j.mano.filter(x => x.id !== cartaId);
+  G.descarte.push(c); G.vistas.push(c);
+  G.turno = siguienteActivo(i); G.fase = 'robar'; G.turnos++;
+  return c;
+}
+
+/* Cierra el jugador i tirando boca abajo la carta cartaId. Devuelve el resumen de la mano. */
+function cerrar(i, cartaId) {
+  const cj = G.jugadores[i];
+  cj.mano = cj.mano.filter(x => x.id !== cartaId);
+  const a = analizar(cj.mano);
+  const ch = esChinchon(cj.mano);
+  const res = { cierra: i, filas: [], chinchon: ch, finPartida: false };
+  const mesa = a.jugadas.map(x => Object.assign({}, x, { cartas: x.cartas.slice() }));
+  let pc = a.muertos === 0 ? -10 : a.muertos;
+  if (ch && !ch.limpio) pc = -10;
+  res.filas.push({ i, jugadas: a.jugadas, sueltas: a.sueltas, colgadas: [], puntos: pc });
+  if (ch && ch.limpio && S.chinchonGana) {
+    res.finPartida = true; G.ganador = i; G.terminada = true;
+    return res;
+  }
+  let k = siguienteActivo(i);
+  while (k !== i) {
+    const r = S.colgar ? colgar(G.jugadores[k].mano, mesa) : (() => { const b = analizar(G.jugadores[k].mano); return { jugadas: b.jugadas, sueltas: b.sueltas, colgadas: [], puntos: b.muertos }; })();
+    res.filas.push({ i: k, jugadas: r.jugadas, sueltas: r.sueltas, colgadas: r.colgadas, puntos: r.puntos });
+    k = siguienteActivo(k);
+  }
+  res.mesa = mesa;
+  for (const f of res.filas) { const p = G.jugadores[f.i]; f.antes = p.puntos; p.puntos += f.puntos; f.despues = p.puntos; }
+  // eliminados
+  const pasan = res.filas.filter(f => G.jugadores[f.i].puntos > S.limite);
+  pasan.forEach(f => { f.eliminado = true; });
+  res.eliminados = pasan.map(f => f.i);
+  if (pasan.length === res.filas.length) {
+    // todos se pasan: gana el que menos tiene
+    const min = Math.min(...res.filas.map(f => G.jugadores[f.i].puntos));
+    const g = res.filas.find(f => G.jugadores[f.i].puntos === min).i;
+    res.eliminados = res.eliminados.filter(x => x !== g);
+    res.filas.forEach(f => { if (f.i === g) f.eliminado = false; });
+  }
+  res.eliminados.forEach(x => { G.jugadores[x].fuera = true; });
+  return res;
+}
+
+function puedeReengancharse(i) {
+  if (!S.reenganche) return false;
+  const p = G.jugadores[i];
+  return p.fuera && p.reeng < S.maxReenganches && activos().length >= 2;
+}
+function reenganchar(i) {
+  const p = G.jugadores[i];
+  const max = Math.max(...activos().map(x => G.jugadores[x].puntos));
+  p.fuera = false; p.reeng++; p.puntos = max;
+  G.bote = Math.round((G.bote + S.raya) * 100) / 100;
+}
+function comprobarFin() {
+  const a = activos();
+  if (a.length <= 1) { G.terminada = true; G.ganador = a[0]; }
+  return G.terminada;
+}
+
+/* ================= INTELIGENCIA DE LOS RIVALES ================= */
+// nivel: 0 fácil, 1 normal, 2 difícil
+function potencial(sueltas, nivel) {
+  const vistos = new Set(G.vistas.map(c => c.s + '-' + c.r));
+  const vivo = (s, r) => !vistos.has(s + '-' + r);
+  let p = 0;
+  const rs = sueltas.filter(c => !c.j);
+  for (let x = 0; x < rs.length; x++) for (let y = x + 1; y < rs.length; y++) {
+    const A = rs[x], B = rs[y];
+    if (A.r === B.r) {
+      let vivas = 0; for (let s = 0; s < 4; s++) if (s !== A.s && s !== B.s && vivo(s, A.r)) vivas++;
+      p += nivel === 2 ? vivas : 1.5;
+    } else if (A.s === B.s) {
+      const d = Math.abs(rIdx(A.r) - rIdx(B.r));
+      if (d === 1) p += 1.5; else if (d === 2) p += 1;
+    }
+  }
+  return p;
+}
+function evaluar(mano, nivel) {
+  const a = analizar(mano);
+  return { v: a.muertos - (nivel ? potencial(a.sueltas, nivel) * (nivel === 2 ? 0.7 : 0.15) : 0), a };
+}
+function peligro(c, i) {
+  // ¿le vendría bien al siguiente jugador? (nivel difícil)
+  if (c.j) return 0;
+  const sig = siguienteActivo(i);
+  const cog = G.cogidas[sig] || [];
+  let p = 0;
+  for (const x of cog) {
+    if (x.r === c.r) p += 2;
+    if (x.s === c.s && Math.abs(rIdx(x.r) - rIdx(c.r)) <= 2) p += 1.5;
+  }
+  return p;
+}
+function mejorTirada(i, mano8, nivel, prohibida) {
+  let mejor = null;
+  for (const c of mano8) {
+    if (c.id === prohibida) continue;
+    if (c.j && mano8.some(x => !x.j && x.id !== prohibida)) continue; // no tira comodines
+    const resto = mano8.filter(x => x !== c);
+    const e = evaluar(resto, nivel);
+    let v = e.v - valor(c) * 0.01;
+    if (nivel === 2) v += peligro(c, i) * 0.6;
+    if (!mejor || v < mejor.v) mejor = { c, v, a: e.a };
+  }
+  return mejor;
+}
+function mejorCierre(mano8, prohibida) {
+  let mejor = null;
+  for (const c of mano8) {
+    if (c.id === prohibida) continue;
+    const a = analizar(mano8.filter(x => x !== c));
+    if (!puedeCerrarCon(a)) continue;
+    const ch = esChinchon(mano8.filter(x => x !== c));
+    const score = (ch && ch.limpio) ? -1000 : a.muertos;
+    if (!mejor || score < mejor.score) mejor = { c, score, a };
+  }
+  return mejor;
+}
+
+/* Decide el robo: true = coger del descarte */
+function iaRobo(i) {
+  const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel);
+  const top = G.descarte[G.descarte.length - 1];
+  if (!top) return false;
+  const con = p.mano.concat([top]);
+  if (nivel > 0 && mejorCierre(con, top.id)) return true;
+  if (top.j) return nivel > 0 || rnd() < 0.6;
+  if (nivel === 2) {
+    // compara con lo que se espera sacar del mazo (cartas no vistas)
+    const conocidas = new Set(p.mano.concat(G.vistas).map(c => c.j ? 'J' + c.id : c.s + '-' + c.r));
+    const noVistas = [];
+    for (let s = 0; s < 4; s++) for (const r of rangos()) if (!conocidas.has(s + '-' + r)) noVistas.push({ id: -1 - noVistas.length, s, r });
+    let suma = 0;
+    for (const u of noVistas) { const t = mejorTirada(i, p.mano.concat([u]), 1, null); suma += t.v; }
+    const esperado = noVistas.length ? suma / noVistas.length : 99;
+    const opt = mejorTirada(i, con, 1, top.id);
+    return opt && opt.v < esperado - 0.5;
+  }
+  const act = evaluar(p.mano, nivel).v;
+  const opt = mejorTirada(i, con, nivel, top.id);
+  const umbral = [2.5, 1.5, 0.6][nivel];
+  if (nivel === 0 && rnd() < 0.3) return false;
+  return opt && opt.v < act - umbral;
+}
+/* Decide qué tirar y si cierra: {carta, cierra} */
+function iaTirada(i) {
+  const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel), proh = G.cogida;
+  const ci = mejorCierre(p.mano, proh);
+  if (ci) {
+    const ok = nivel > 0 || ci.a.muertos <= 1 || rnd() < 0.5;
+    if (ok) return { carta: ci.c, cierra: true };
+  }
+  let t = mejorTirada(i, p.mano, nivel, proh);
+  if (nivel === 0 && rnd() < 0.35) {
+    const a = analizar(p.mano);
+    const opc = a.sueltas.filter(c => !c.j && c.id !== proh);
+    if (opc.length) t = { c: opc[Math.floor(rnd() * opc.length)] };
+  }
+  if (!t) t = { c: p.mano.find(c => c.id !== proh) };
+  return { carta: t.c, cierra: false };
+}
+
+/* Simulación rápida (cuando el humano queda fuera) */
+function simularHastaFinal() {
+  let guard = 0;
+  while (!G.terminada && guard++ < 500) {
+    repartir();
+    let res = null, t = 0;
+    while (!res && t++ < 400) {
+      const i = G.turno;
+      const desc = iaRobo(i);
+      if (!robar(i, desc)) break;
+      const d = iaTirada(i);
+      if (d.cierra) res = cerrar(i, d.carta.id); else tirar(i, d.carta.id);
+    }
+    if (!res) continue;
+    if (res.finPartida) break;
+    for (const x of res.eliminados) if (!G.jugadores[x].humano && puedeReengancharse(x) && rnd() < 0.6) reenganchar(x);
+    comprobarFin();
+  }
+  return G.ganador;
+}
+
+if (typeof module !== 'undefined') module.exports = { S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, reenganchar, puedeReengancharse, comprobarFin };
+
+</script>
+<script>
+/* ================= INTERFAZ ================= */
+// Para usar tus propias imágenes de la baraja: pon aquí la carpeta, p. ej. {ruta:'cartas/', ext:'png'}
+// y nombra los archivos oros-1.png … bastos-12.png, comodin.png y dorso.png
+const IMAGENES = null;
+
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const euros = x => (Math.round(x * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+let PREF = Object.assign({}, DEF, { nombre: 'Tú' }, LS.get('mc-ajustes', {}));
+let CART = Object.assign({ saldo: 10, jugadas: 0, ganadas: 0 }, LS.get('mc-cartera', {}));
+const guardarCartera = () => LS.set('mc-cartera', CART);
+
+/* ---------- Dibujar cartas ---------- */
+function htmlCarta(c, extra = '') {
+  if (!c) return '<div class="vacio"></div>';
+  if (IMAGENES) {
+    const f = c.j ? 'comodin' : PALOS[c.s] + '-' + c.r;
+    return `<div class="carta ${extra}" data-id="${c.id}"><img src="${IMAGENES.ruta}${f}.${IMAGENES.ext}" alt="${nombreCarta(c)}"></div>`;
+  }
+  if (c.j) return `<div class="carta comodin ${extra}" data-id="${c.id}"><div class="jk">🃏<small>COMODÍN</small></div></div>`;
+  const p = PALOS[c.s], fig = { 10: 'SOTA', 11: 'CABALLO', 12: 'REY' }[c.r];
+  return `<div class="carta c-${p} ${fig ? 'fig' : ''} ${extra}" data-id="${c.id}" aria-label="${nombreCarta(c)}">
+    <span class="esq">${c.r}</span>
+    <svg class="palo"><use href="#p-${p}"/></svg>${fig ? `<span class="figtxt">${fig}</span>` : ''}</div>`;
+}
+const dorso = () => IMAGENES ? `<div class="carta"><img src="${IMAGENES.ruta}dorso.${IMAGENES.ext}" alt=""></div>` : '<div class="carta dorso"></div>';
+
+/* ---------- Pantallas ---------- */
+function ir(id) {
+  for (const s of document.querySelectorAll('section')) s.classList.toggle('oculto', s.id !== id);
+  window.scrollTo(0, 0);
+  if (id === 'inicio') pintarInicio();
+  if (id === 'ajustes') pintarAjustes();
+}
+document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
+
+function pintarInicio() {
+  $('saldo').textContent = euros(CART.saldo);
+  $('estad').textContent = CART.jugadas ? `Partidas: ${CART.jugadas} · Ganadas: ${CART.ganadas}` : '';
+  $('bContinuar').classList.toggle('oculto', !LS.get('mc-partida', null));
+  $('abanico').innerHTML = [{ s: 0, r: 1 }, { s: 1, r: 12 }, { s: 2, r: 7 }, { s: 3, r: 11 }].map(c => htmlCarta(c)).join('');
+  const cs = $('abanico').children;
+  [...cs].forEach((e, k) => e.style.transform = `rotate(${(k - 1.5) * 9}deg) translateY(${Math.abs(k - 1.5) * 6}px)`);
+}
+
+/* ---------- Ajustes ---------- */
+const OPC = [
+  { h: 'La partida' },
+  { k: 'jugadores', t: 'Número de jugadores', op: [[2, '2'], [3, '3'], [4, '4'], [5, '5']] },
+  { k: 'baraja', t: 'Baraja', op: [[40, '40 cartas'], [48, '48 cartas (con 8 y 9)']] },
+  { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
+  { k: 'nivel', t: 'Dificultad de los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']] },
+  { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
+  { k: 'grandes', t: 'Tamaño de mis cartas', op: [[false, 'Normal'], [true, 'Grandes']] },
+  { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
+  { k: 'nombre', t: 'Tu nombre', txt: true },
+  { k: 'nombres', t: 'Nombres de los rivales (separados por comas)', txt: true },
+  { h: 'Dinero y puntos' },
+  { k: 'raya', t: 'La raya (lo que pone cada uno)', op: [[0.1, '0,10 €'], [0.2, '0,20 €'], [0.5, '0,50 €'], [1, '1 €']] },
+  { k: 'limite', t: 'Se queda fuera al pasar de', op: [[50, '50'], [75, '75'], [100, '100'], [150, '150']] },
+  { k: 'reenganche', t: 'Reengancharse', op: [[true, 'Sí'], [false, 'No']] },
+  { k: 'maxReenganches', t: 'Veces que uno se puede reenganchar', op: [[1, '1'], [2, '2'], [99, 'Sin límite']] },
+  { h: 'Reglas de la casa' },
+  { k: 'maxPuntos', t: 'Cerrar con, como mucho… (puntos)', op: [[0, '0'], [1, '1'], [3, '3'], [5, '5'], [7, '7']] },
+  { k: 'maxSueltas', t: 'Cartas sin ligar al cerrar', op: [[0, 'Ninguna'], [1, '1'], [2, '2'], [7, 'Da igual']] },
+  { k: 'figuras', t: 'Sota, caballo y rey valen', op: [[10, '10 puntos'], [0, '10, 11 y 12']] },
+  { k: 'valorComodin', t: 'Comodín sin ligar vale', op: [[25, '25'], [50, '50']] },
+  { k: 'colgar', t: 'Colgar cartas en las jugadas del que cierra', op: [[true, 'Sí'], [false, 'No']] },
+  { k: 'chinchonGana', t: 'El chinchón gana la partida', op: [[true, 'Sí'], [false, 'No (vale −10)']] }
+];
+function pintarAjustes() {
+  $('notaPartida').classList.toggle('oculto', !LS.get('mc-partida', null));
+  let h = '', abierto = false;
+  for (const o of OPC) {
+    if (o.h) { if (abierto) h += '</div>'; h += `<div class="grupo"><h3>${o.h}</h3>`; abierto = true; continue; }
+    h += `<div class="opc"><div class="tit">${o.t}</div>`;
+    if (o.txt) h += `<input data-k="${o.k}" value="${String(PREF[o.k]).replace(/"/g, '&quot;')}">`;
+    else h += `<div class="seg">${o.op.map(([v, l]) => `<button data-k="${o.k}" data-v='${JSON.stringify(v)}' aria-pressed="${PREF[o.k] === v}">${l}</button>`).join('')}</div>`;
+    if (o.k === 'baraja' && PREF.baraja === 40 && PREF.jugadores === 5) h += '<div class="nota">Con 5 jugadores y 40 cartas apenas queda mazo: mejor la de 48.</div>';
+    h += '</div>';
+  }
+  $('opciones').innerHTML = h + '</div>';
+  $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => { PREF[b.dataset.k] = JSON.parse(b.dataset.v); LS.set('mc-ajustes', PREF); pintarAjustes(); });
+  $('opciones').querySelectorAll('input').forEach(i => i.oninput = () => { PREF[i.dataset.k] = i.value; LS.set('mc-ajustes', PREF); });
+}
+$('bReset').onclick = () => { PREF = Object.assign({}, DEF, { nombre: PREF.nombre }); LS.set('mc-ajustes', PREF); pintarAjustes(); aviso('Ajustes de siempre puestos'); };
+$('bSaldo').onclick = () => { CART.saldo = 10; guardarCartera(); aviso('Monedero a 10,00 €'); };
+$('bAjustes').onclick = () => ir('ajustes');
+$('bReglas').onclick = () => ir('reglas');
+
+/* ---------- Avisos y ventanas ---------- */
+let tAviso;
+function aviso(t) { const a = $('aviso'); a.textContent = t; a.classList.remove('oculto'); clearTimeout(tAviso); tAviso = setTimeout(() => a.classList.add('oculto'), 2600); }
+function ventana(html, botones) {
+  $('ventana').innerHTML = html + `<div class="botones">${botones.map((b, k) => `<button class="${b.clase || 'si'}" data-k="${k}">${b.t}</button>`).join('')}</div>`;
+  $('velo').classList.remove('oculto');
+  $('ventana').scrollTop = 0;
+  $('ventana').querySelectorAll('.botones button').forEach(e => e.onclick = () => { $('velo').classList.add('oculto'); botones[+e.dataset.k].f && botones[+e.dataset.k].f(); });
+}
+
+/* ================= PARTIDA ================= */
+let sel = null, orden = 0, nueva = null, token = 0, pistaId = null;
+const ESPERA = () => [1700, 1000, 450][S.velocidad];
+const YO = 0;
+const pts = n => n + (Math.abs(n) === 1 ? ' punto' : ' puntos');
+
+function guardar() { if (G && !G.terminada) LS.set('mc-partida', { G, S }); }
+function borrarGuardada() { LS.del('mc-partida'); }
+
+$('bJugar').onclick = () => {
+  if (LS.get('mc-partida', null)) {
+    ventana('<h2>¿Partida nueva?</h2><div class="sub">Tienes una partida empezada. Si empiezas otra, la raya de esa se pierde.</div>',
+      [{ t: 'Sí, empezar otra', f: empezarPartida }, { t: 'No, seguir la que tengo', clase: 'no', f: continuar }]);
+  } else empezarPartida();
+};
+$('bContinuar').onclick = continuar;
+
+function empezarPartida() {
+  Object.keys(S).forEach(k => delete S[k]);
+  Object.assign(S, PREF);
+  if (S.baraja === 40 && S.jugadores === 5) S.baraja = 48;
+  nuevaPartida(S.nombre || 'Tú');
+  CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; CART.jugadas++; guardarCartera();
+  G.aportado = S.raya;
+  ir('juego');
+  aviso(`Cada uno pone su raya: ${euros(S.raya)} 💰`);
+  empezarMano();
+}
+function continuar() {
+  const d = LS.get('mc-partida', null);
+  if (!d) return;
+  Object.keys(S).forEach(k => delete S[k]); Object.assign(S, d.S);
+  G = d.G;
+  ir('juego');
+  if (G.fase === 'resultado' && G.res) { pintar(); mostrarResultado(G.res); return; }
+  pintar(); avanzar();
+}
+$('bSalir').onclick = () => ventana('<h2>¿Salir?</h2><div class="sub">La partida se queda guardada y puedes seguirla luego.</div>',
+  [{ t: 'Salir al inicio', f: () => { token++; ir('inicio'); } }, { t: 'Seguir jugando', clase: 'no' }]);
+
+function empezarMano() {
+  repartir(); G.jugadores[YO].orden = null; orden = 1; sel = null; nueva = null; pistaId = null;
+  G.res = null;
+  pintar(); guardar();
+  const r = G.jugadores[G.reparte];
+  mensaje(`${r.humano ? 'Repartes tú' : 'Reparte ' + r.nombre}. ¡Mano ${G.manoN}!`);
+  const t = ++token;
+  setTimeout(() => { if (t === token) avanzar(); }, 1100);
+}
+
+function mensaje(t, tuyo) { const m = $('mensaje'); m.textContent = t; m.classList.toggle('tuyo', !!tuyo); }
+
+function avanzar() {
+  if (!G || G.terminada) return;
+  const t = ++token;
+  pintar(); guardar();
+  if (G.jugadores[G.turno].humano) {
+    if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {} }
+    else mensaje('Elige la carta que tiras', true);
+    return;
+  }
+  setTimeout(() => { if (t === token) turnoIA(t); }, ESPERA() * 0.6);
+}
+
+function turnoIA(t) {
+  const i = G.turno, p = G.jugadores[i];
+  const deDesc = iaRobo(i);
+  const c = robar(i, deDesc);
+  if (!c) return manoNula();
+  p.ultimo = deDesc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
+  mensaje(deDesc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
+  pintar();
+  setTimeout(() => {
+    if (t !== token) return;
+    const d = iaTirada(i);
+    if (d.cierra) { const res = cerrar(i, d.carta.id); return finMano(res); }
+    tirar(i, d.carta.id);
+    p.ultimo += ' y tiró ' + nombreCarta(d.carta);
+    mensaje(`${p.nombre} tira ${nombreCarta(d.carta)}`);
+    pintar(true);
+    setTimeout(() => { if (t === token) avanzar(); }, ESPERA());
+  }, ESPERA());
+}
+
+function manoNula() {
+  mensaje('Se acabó el mazo: mano nula, se vuelve a repartir');
+  const t = ++token;
+  setTimeout(() => { if (t === token) empezarMano(); }, 2000);
+}
+
+/* ---------- Acciones del jugador ---------- */
+function miTurno() { return G && !G.terminada && G.turno === YO && G.jugadores[YO].humano; }
+$('mMazo').onclick = () => { if (miTurno() && G.fase === 'robar') cogerYo(false); };
+$('mDesc').onclick = () => { if (miTurno() && G.fase === 'robar' && G.descarte.length) cogerYo(true); };
+function cogerYo(deDesc) {
+  const c = robar(YO, deDesc);
+  if (!c) return manoNula();
+  nueva = c.id; sel = null; pistaId = null;
+  mensaje(deDesc ? `Has cogido ${nombreCarta(c)}. Ahora tira una` : `Te ha salido ${nombreCarta(c)}. Ahora tira una`, true);
+  pintar(); guardar();
+}
+function tocarCarta(id) {
+  if (!miTurno() || G.fase !== 'tirar') return;
+  if (sel === id) return tirarYo();
+  sel = id; pintar();
+}
+
+/* ---------- Mover cartas con el dedo ---------- */
+let arr = null; // {id, x0, y0, moviendo, fantasma}
+$('mano').addEventListener('pointerdown', e => {
+  const el = e.target.closest('.carta'); if (!el || !G) return;
+  arr = { id: +el.dataset.id, x0: e.clientX, y0: e.clientY, moviendo: false, pid: e.pointerId };
+});
+window.addEventListener('pointermove', e => {
+  if (!arr || e.pointerId !== arr.pid) return;
+  const dx = e.clientX - arr.x0, dy = e.clientY - arr.y0;
+  if (!arr.moviendo) {
+    if (Math.hypot(dx, dy) < 12) return;
+    const el = $('mano').querySelector(`.carta[data-id="${arr.id}"]`); if (!el) { arr = null; return; }
+    const r = el.getBoundingClientRect();
+    arr.moviendo = true; arr.w = r.width; arr.ox = arr.x0 - r.left; arr.oy = arr.y0 - r.top;
+    arr.fantasma = el.cloneNode(true);
+    arr.fantasma.classList.remove('sel', 'pista');
+    Object.assign(arr.fantasma.style, { position: 'fixed', width: r.width + 'px', left: 0, top: 0, zIndex: 50, pointerEvents: 'none', transform: 'scale(1.08) rotate(-3deg)', boxShadow: '0 14px 28px rgba(0,0,0,.55)' });
+    document.body.appendChild(arr.fantasma);
+    pintar();
+  }
+  e.preventDefault();
+  arr.fantasma.style.left = (e.clientX - arr.ox) + 'px';
+  arr.fantasma.style.top = (e.clientY - arr.oy) + 'px';
+  // ¿sobre qué hueco está el dedo?
+  const cartas = [...$('mano').querySelectorAll('.carta')];
+  let mejor = -1, dist = 1e9;
+  cartas.forEach((c, k) => { const r = c.getBoundingClientRect(); const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)); if (d < dist) { dist = d; mejor = k; } });
+  const ord = miOrden(), de = ord.indexOf(arr.id);
+  if (mejor >= 0 && mejor !== de && dist < arr.w * 1.2) {
+    ord.splice(de, 1); ord.splice(mejor, 0, arr.id);
+    G.jugadores[YO].orden = ord; pintar();
+  }
+}, { passive: false });
+function soltar(e) {
+  if (!arr || (e && e.pointerId !== arr.pid)) return;
+  const a = arr; arr = null;
+  if (a.moviendo) { a.fantasma.remove(); pintar(); guardar(); }
+  else if (e && e.type === 'pointerup') tocarCarta(a.id);
+}
+window.addEventListener('pointerup', soltar);
+window.addEventListener('pointercancel', soltar);
+
+$('bTirar').onclick = tirarYo;
+function tirarYo() {
+  if (!miTurno() || G.fase !== 'tirar' || sel === null) return;
+  if (sel === G.cogida) return aviso('No puedes tirar la carta que acabas de coger del montón');
+  const c = G.jugadores[YO].mano.find(x => x.id === sel);
+  tirar(YO, sel); sel = null; nueva = null; pistaId = null;
+  G.jugadores[YO].ultimo = '';
+  mensaje(`Has tirado ${nombreCarta(c)}`);
+  pintar(true);
+  const t = ++token;
+  setTimeout(() => { if (t === token) avanzar(); }, 500);
+}
+$('bCerrar').onclick = () => {
+  if (!miTurno() || G.fase !== 'tirar' || sel === null) return;
+  const resto = G.jugadores[YO].mano.filter(x => x.id !== sel);
+  if (!puedeCerrarCon(analizar(resto))) return aviso('Todavía no puedes cerrar con esa carta');
+  if (sel === G.cogida) return aviso('No puedes cerrar con la carta que acabas de coger');
+  const res = cerrar(YO, sel); sel = null;
+  finMano(res);
+};
+$('bOrdenar').onclick = () => {
+  if (!G) return;
+  G.jugadores[YO].orden = ordenAuto(G.jugadores[YO].mano, orden); pintar(); guardar();
+  aviso(['Ordenadas por jugadas', 'Ordenadas por palos', 'Ordenadas por números'][orden] + '. Arrastra las cartas para moverlas a tu gusto 👆');
+  orden = (orden + 1) % 3;
+};
+$('bPista').onclick = () => {
+  if (!miTurno()) return aviso('Espera a tu turno');
+  if (G.fase === 'robar') {
+    const coge = (() => { const n = S.nivel; S.nivel = 2; const r = iaRobo(YO); S.nivel = n; return r; })();
+    return aviso(coge ? '💡 Te conviene coger la carta del montón' : '💡 Mejor roba del mazo');
+  }
+  const ci = mejorCierre(G.jugadores[YO].mano, G.cogida);
+  if (ci) { pistaId = ci.c.id; sel = ci.c.id; pintar(); return aviso(`💡 ¡Puedes cerrar tirando ${nombreCarta(ci.c)}!`); }
+  const mt = mejorTirada(YO, G.jugadores[YO].mano, 2, G.cogida);
+  pistaId = mt.c.id; sel = mt.c.id; pintar();
+  aviso(`💡 Yo tiraría ${nombreCarta(mt.c)}`);
+};
+
+/* ---------- Pintar la mesa ---------- */
+const BANDAS = ['#2e9b4a', '#1f6fd1', '#8e3bc4', '#d1781f'];
+function ordenAuto(mano, modo) {
+  const a = analizar(mano);
+  const k = c => c.j ? 999 : (modo === 2 ? c.r * 10 + c.s : c.s * 100 + c.r);
+  if (modo !== 0) return mano.slice().sort((x, y) => k(x) - k(y)).map(c => c.id);
+  const lista = [];
+  a.jugadas.forEach(j => lista.push(...j.cartas));
+  lista.push(...a.sueltas.slice().sort((x, y) => k(x) - k(y)));
+  return lista.map(c => c.id);
+}
+// Su orden personal: las cartas que ya tenía se quedan donde las puso, las nuevas van al final
+function miOrden() {
+  const yo = G.jugadores[YO], ids = new Set(yo.mano.map(c => c.id));
+  if (!yo.orden || !yo.orden.some(id => ids.has(id))) yo.orden = ordenAuto(yo.mano, 0);
+  const ord = yo.orden.filter(id => ids.has(id));
+  for (const c of yo.mano) if (!ord.includes(c.id)) ord.push(c.id);
+  yo.orden = ord;
+  return ord.slice();
+}
+function ordenarMano(mano) {
+  const porId = new Map(mano.map(c => [c.id, c]));
+  return { lista: miOrden().map(id => porId.get(id)), a: analizar(mano) };
+}
+function pintar(flash) {
+  if (!G) return;
+  const yo = G.jugadores[YO];
+  $('infoMano').innerHTML = `Mano ${G.manoN}<br><small style="font-weight:500;opacity:.8">fuera al pasar de ${S.limite}</small>`;
+  $('bote').textContent = '💰 ' + euros(G.bote);
+  // rivales
+  $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
+    <div class="rival ${G.turno === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}">
+      <div class="nom">${p.nombre}</div>
+      <div class="pts">${p.fuera ? '❌ Fuera' : pts(p.puntos)}${p.reeng ? ' 🔁' : ''}</div>
+      <div class="barrita"><i style="width:${Math.max(0, Math.min(100, p.puntos / S.limite * 100))}%"></i></div>
+      <div class="dorsos">${p.fuera ? '' : '<i></i>'.repeat(p.mano.length)}</div>
+      <div class="ult">${p.ultimo || ''}</div>
+    </div>`).join('');
+  // mazo y montón
+  $('nMazo').textContent = `Mazo (${G.mazo.length})`;
+  const top = G.descarte[G.descarte.length - 1];
+  $('mDesc').innerHTML = (top ? htmlCarta(top, flash ? 'flash' : '') : '<div class="vacio"></div>') + '<span>Montón</span>';
+  const robo = miTurno() && G.fase === 'robar';
+  $('mMazo').classList.toggle('activo', robo);
+  $('mDesc').classList.toggle('activo', robo && !!top);
+  // mi mano
+  $('yoNom').textContent = yo.nombre + (yo.reeng ? ' 🔁' : '');
+  $('yoPts').textContent = pts(yo.puntos);
+  const { lista, a } = ordenarMano(yo.mano);
+  const banda = {};
+  a.jugadas.forEach((j, k) => j.cartas.forEach(c => banda[c.id] = BANDAS[k % BANDAS.length]));
+  const mano = $('mano');
+  mano.classList.toggle('g3', !!S.grandes);
+  mano.innerHTML = lista.map(c => {
+    const cls = [arr && arr.moviendo && arr.id === c.id ? 'hueco' : '', sel === c.id && !(arr && arr.moviendo) ? 'sel' : '', nueva === c.id ? 'nueva' : '', pistaId === c.id ? 'pista' : ''].join(' ');
+    return htmlCarta(c, cls).replace(/<\/div>$/, banda[c.id] ? `<i class="banda" style="background:${banda[c.id]}"></i></div>` : '</div>');
+  }).join('');
+  // sueltas / cierre
+  const tirando = miTurno() && G.fase === 'tirar';
+  let puedeCerrar = false, cierraSel = false;
+  if (tirando) {
+    puedeCerrar = !!mejorCierre(yo.mano, G.cogida);
+    if (sel !== null && sel !== G.cogida) cierraSel = puedeCerrarCon(analizar(yo.mano.filter(x => x.id !== sel)));
+  }
+  const si = $('sueltas');
+  si.classList.toggle('oculto', !S.ayudas);
+  if (tirando && puedeCerrar) { si.textContent = '✅ ¡Puedes cerrar!'; si.classList.add('cierra'); }
+  else { si.textContent = `Sin ligar: ${a.muertos} pts`; si.classList.remove('cierra'); }
+  if (tirando && S.ayudas && puedeCerrar && !cierraSel) mensaje('¡Puedes cerrar! Elige la carta que tiras boca abajo y pulsa Cerrar', true);
+  $('bTirar').disabled = !(tirando && sel !== null);
+  $('bCerrar').disabled = !(tirando && cierraSel);
+  $('bPista').disabled = !S.ayudas;
+}
+
+/* ---------- Fin de mano ---------- */
+function finMano(res) {
+  token++;
+  G.fase = 'resultado'; G.res = res;
+  pintar(); guardar();
+  setTimeout(() => mostrarResultado(res), 500);
+}
+function minis(cartas, cls) { return cartas.length ? `<div class="gr ${cls || ''}">${cartas.map(c => htmlCarta(c)).join('')}</div>` : ''; }
+function mostrarResultado(res) {
+  const quien = G.jugadores[res.cierra];
+  if (res.finPartida) return finPartida(`¡CHINCHÓN de ${quien.humano ? 'ti' : quien.nombre}!`);
+  const f0 = res.filas[0];
+  let titulo = quien.humano ? (f0.puntos === -10 ? '¡Cierras con todo ligado! −10 🎉' : 'Has cerrado tú 👏') : `${quien.nombre} cierra${f0.puntos === -10 ? ' con −10' : ''}`;
+  if (res.chinchon && !res.chinchon.limpio) titulo += ' (chinchón con comodín)';
+  let h = `<h2>${titulo}</h2>`;
+  for (const f of res.filas) {
+    const p = G.jugadores[f.i];
+    h += `<div class="fila ${f.eliminado ? 'elim' : ''}"><div class="top"><span>${p.humano ? '⭐ ' : ''}${p.nombre}</span><span class="suma">${f.puntos >= 0 ? '+' : ''}${f.puntos} → ${f.despues}</span></div>
+      <div class="minis">${f.jugadas.map(j => minis(j.cartas)).join('')}${minis(f.colgadas, 'colg')}${minis(f.sueltas, 'suel')}</div>
+      ${f.colgadas.length ? `<div class="nota">Ha colgado ${f.colgadas.length === 1 ? 'una carta' : f.colgadas.length + ' cartas'} en las jugadas del que cierra</div>` : ''}
+      ${f.eliminado ? `<div class="nota" style="opacity:1;color:#ffb4a6;font-weight:800">Se pasa de ${S.limite}: ¡fuera!</div>` : ''}</div>`;
+  }
+  h += '<div class="nota" style="text-align:center">Verde: ligadas · Azul: colgadas · Rojo: sin ligar</div>';
+  ventana(h, [{ t: 'Seguir', f: () => trasResultado(res) }]);
+}
+function trasResultado(res) {
+  const yo = G.jugadores[YO];
+  if (yo.fuera && puedeReengancharse(YO)) {
+    const max = Math.max(...activos().map(x => G.jugadores[x].puntos));
+    return ventana(`<h2>Te has pasado 😬</h2><div class="sub">¿Te reenganchas? Pones otra raya de <b>${euros(S.raya)}</b> y vuelves con <b>${max} puntos</b>.</div>`,
+      [{ t: `Sí, me reengancho (${euros(S.raya)})`, f: () => { reenganchar(YO); CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; G.aportado += S.raya; guardarCartera(); aviso('¡Reenganchada! 💪'); seguirTras(res); } },
+       { t: 'No, me retiro', clase: 'no', f: () => seguirTras(res) }]);
+  }
+  seguirTras(res);
+}
+function seguirTras(res) {
+  const nombres = [];
+  for (const x of res.eliminados) {
+    const p = G.jugadores[x];
+    if (!p.humano && puedeReengancharse(x) && Math.random() < 0.6) { reenganchar(x); nombres.push(p.nombre); }
+  }
+  if (nombres.length) aviso(`${nombres.join(' y ')} se reengancha${nombres.length > 1 ? 'n' : ''} 🔁`);
+  G.fase = 'robar';
+  if (G.jugadores[YO].fuera && activos().length > 1) {
+    // la partida sigue sin ti: se juega el resto en un momento
+    simularHastaFinal();
+    return finPartida();
+  }
+  if (comprobarFin()) return finPartida();
+  guardar();
+  empezarMano();
+}
+function finPartida(titulo) {
+  token++;
+  G.terminada = true; borrarGuardada();
+  const g = G.jugadores[G.ganador];
+  const gano = g && g.humano;
+  if (gano) { CART.saldo = Math.round((CART.saldo + G.bote) * 100) / 100; CART.ganadas++; }
+  guardarCartera();
+  const neto = (gano ? G.bote : 0) - G.aportado;
+  let h = `<div class="premio">${gano ? '🏆' : '🃏'}</div><h2>${titulo ? titulo + '<br>' : ''}${gano ? '¡Has ganado la partida!' : g ? `Gana ${g.nombre}` : 'Fin de la partida'}</h2>`;
+  h += `<div class="sub">${gano ? `Te llevas el bote: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva' : 'Bote:'} ${euros(G.bote)}`}</div>`;
+  h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;
+  h += G.jugadores.map(p => `<div class="fila"><div class="top"><span>${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p.fuera ? 'fuera' : pts(p.puntos)}${p.reeng ? ' · 🔁×' + p.reeng : ''}</span></div></div>`).join('');
+  ventana(h, [{ t: 'Otra partida', f: empezarPartida }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
+}
+
+ir('inicio');
+// Funciona sin internet una vez instalada
+if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
+</script>
+</body>
+</html>
