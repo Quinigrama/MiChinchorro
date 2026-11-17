@@ -18,7 +18,7 @@ html,body{margin:0;min-height:100%}html{background:#123d25}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--txt);background:radial-gradient(ellipse at 50% 30%,#2a7a4b 0%,var(--tapete) 45%,var(--tapete2) 100%) no-repeat #123d25;font-size:19px;line-height:1.35;user-select:none;-webkit-user-select:none}
 button{font:inherit;cursor:pointer;border:0;border-radius:14px}
 .oculto{display:none!important}
-section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom))}
+section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom))}
 
 /* ---------- Inicio ---------- */
 #inicio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;min-height:100vh}
@@ -50,7 +50,7 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
 .reglas li{margin-bottom:8px}
 
 /* ---------- Juego ---------- */
-#juego{display:flex;flex-direction:column;gap:6px;min-height:100vh}
+#juego{max-width:1100px;display:flex;flex-direction:column;gap:6px;height:100vh;height:100dvh;overflow:hidden;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
 .cab{display:flex;align-items:center;gap:8px}
 .cab .volver{padding:8px 12px;font-size:17px}
 .cab .info{flex:1;text-align:center;font-weight:700;font-size:16px;line-height:1.2}
@@ -68,19 +68,23 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
 .dorsos i{width:13px;height:20px;border-radius:3px;background:#a3262a;border:1.5px solid #fff3d6;margin-right:-6px}
 .mesa{display:flex;justify-content:center;align-items:flex-end;gap:26px;padding:4px 0}
 .monton{text-align:center;font-size:15px;font-weight:700}
-.monton .carta,.monton .vacio{width:72px;margin:0 auto 4px}
+.monton .carta,.monton .vacio{width:var(--mw,72px);margin:0 auto 4px}
+.mesa{border-radius:18px;transition:background .15s,box-shadow .15s}
+.mesa.destino{background:rgba(242,193,78,.18);box-shadow:0 0 0 3px var(--oro) inset}
+.mesa.destino #mDesc::after{content:'Suelta aquí';display:block;font-size:14px;color:var(--oro)}
 .vacio{aspect-ratio:2/3;border:3px dashed rgba(255,255,255,.35);border-radius:9px}
 .monton.activo .carta{box-shadow:0 0 0 4px var(--oro),0 0 22px rgba(242,193,78,.8);animation:late 1.2s infinite}
 @keyframes late{50%{transform:scale(1.05)}}
 .mensaje{background:rgba(0,0,0,.4);border-radius:14px;padding:8px 12px;text-align:center;font-size:19px;font-weight:700;min-height:48px;display:flex;align-items:center;justify-content:center}
 .mensaje.tuyo{background:#f2c14e;color:#3b2a00}
-.yo{display:flex;justify-content:space-between;align-items:center;font-size:17px;padding:0 4px}
+.yo{display:flex;align-items:center;gap:8px;font-size:17px;padding:0 2px}
+.yo .quien{flex:1;min-width:6.5em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini{background:rgba(255,255,255,.16);color:var(--txt);font-size:22px;width:46px;height:42px;padding:0}
+.mini:disabled{opacity:.3}
 .yo b{font-size:19px}
-.sueltasinfo{background:var(--panel);padding:4px 10px;border-radius:10px}
+.sueltasinfo{background:var(--panel);padding:4px 9px;border-radius:10px;font-size:15px;white-space:nowrap}
 .sueltasinfo.cierra{background:#7bd389;color:#073b12;font-weight:800}
-.mano{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 2px 4px}
-.mano.g3{grid-template-columns:repeat(3,1fr)}
-@media (min-width:700px){.mano{grid-template-columns:repeat(8,1fr)}.mano.g3{grid-template-columns:repeat(8,1fr)}}
+.mano{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(var(--cols,4),var(--cw,80px));justify-content:center;align-content:center;gap:var(--gap,8px);padding:14px 0 2px}
 .mano .carta{transition:transform .15s,box-shadow .15s;cursor:grab;touch-action:none}
 .mano .carta.hueco{opacity:.25;outline:3px dashed var(--oro);outline-offset:-3px}
 .mano .carta.sel{transform:translateY(-14px);box-shadow:0 0 0 4px var(--oro),0 10px 18px rgba(0,0,0,.5)}
@@ -88,11 +92,6 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
 @keyframes pista{50%{box-shadow:0 0 0 5px #7bd3ff,0 0 24px #7bd3ff}}
 .mano .carta.nueva::after{content:"NUEVA";position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:#e5533d;color:#fff;font:800 11px system-ui;padding:2px 6px;border-radius:8px}
 .mano .carta.bloq{opacity:.75}
-.acciones{display:grid;grid-template-columns:1fr 1fr 1.3fr 1.3fr;gap:8px;margin-top:auto;padding-top:6px}
-.acciones button{padding:14px 6px;font-size:18px;font-weight:800;background:rgba(255,255,255,.16);color:var(--txt)}
-.acciones button.prim{background:var(--oro);color:#3b2a00;box-shadow:0 4px 0 #a8801f}
-.acciones button.cerrar{background:#7bd389;color:#073b12;box-shadow:0 4px 0 #3f9450}
-.acciones button:disabled{opacity:.35;box-shadow:none}
 
 /* ---------- Cartas ---------- */
 .carta{position:relative;aspect-ratio:2/3;background:var(--crema);border-radius:9px;border:2px solid #d8cba8;container-type:inline-size;color:var(--c);box-shadow:0 3px 6px rgba(0,0,0,.35);overflow:visible}
@@ -102,6 +101,8 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
 .carta.fig svg.palo{width:50cqw;height:50cqw;left:25cqw;top:36cqw}
 .carta .figtxt{position:absolute;left:0;right:0;bottom:12cqw;text-align:center;font-weight:900;font-size:14cqw;letter-spacing:.5px}
 .carta .banda{position:absolute;left:-2px;right:-2px;bottom:-2px;height:9cqw;border-radius:0 0 9px 9px}
+.carta.volteada{animation:voltear .35s}
+@keyframes voltear{0%{transform:rotateY(90deg)}100%{transform:none}}
 .carta.dorso{background:repeating-linear-gradient(45deg,#a3262a 0 6px,#8c1f22 6px 12px);border-color:#fff3d6}
 .carta.dorso::before{content:"MC";position:absolute;inset:18%;border:2px solid #fff3d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff3d6;font-weight:900;font-size:22cqw}
 .carta.comodin .jk{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:44cqw}
@@ -131,6 +132,8 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
 .aviso{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:14px;font-size:18px;font-weight:700;z-index:30;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .flash{animation:flash .6s}
 @keyframes flash{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
+@media (max-height:720px){.mensaje{font-size:16px;min-height:40px;padding:6px 10px}.rival .ult{height:1.25em}.rival .nom{font-size:15px}.cab .info small{display:none}}
+@media (max-height:560px){.rival .ult,.rival .barrita{display:none}}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -172,13 +175,13 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
     <ul>
       <li>Cada uno tiene <b>7 cartas</b>. En tu turno <b>coges una</b> (del mazo o la de arriba del montón) y <b>tiras una</b>.</li>
       <li>Hay que <b>ligar</b> las cartas: <b>tres o cuatro iguales</b> (tres sietes) o <b>escalera</b> de tres o más del mismo palo (4, 5 y 6 de copas).</li>
-      <li>Cuando casi todo está ligado puedes <b>cerrar</b>: eliges la carta que tiras y pulsas <b>Cerrar</b>.</li>
+      <li>Cuando casi todo está ligado puedes <b>cerrar</b>: <b>toca dos veces</b> la carta que quieres tirar, se pone <b>boca abajo</b>, y arrástrala al montón. Si te arrepientes, devuélvela a la mano y se da la vuelta.</li>
       <li>Las cartas que no estén ligadas <b>suman puntos</b>. Quien pasa de 100 <b>se apunta una raya</b> (0,20 €) y se <b>reengancha</b> con los puntos de la que más tiene.</li>
       <li>Si cierras con todo ligado te <b>quitas 10 puntos</b>. Y si haces <b>chinchón</b> (siete seguidas del mismo palo) <b>ganas la partida</b>.</li>
       <li>La partida acaba cuando todas se han pasado menos una: <b>gana la que queda por debajo de 100</b> y se lleva todas las rayas 💰.</li>
     </ul>
-    <p>💡 Las cartas ligadas llevan una <b>raya de color</b> debajo. Toca una carta para elegirla y vuelve a tocarla (o pulsa <b>Tirar</b>) para tirarla.</p>
-    <p>👆 Para <b>colocar tus cartas a tu gusto</b>, arrástralas con el dedo. El botón <b>Ordenar</b> las coloca de golpe por jugadas, por palos o por números.</p>
+    <p>💡 Las cartas ligadas llevan una <b>raya de color</b> debajo. Para <b>tirar</b> una carta, arrástrala con el dedo hasta el montón y suéltala.</p>
+    <p>👆 Para <b>colocar tus cartas a tu gusto</b>, arrástralas con el dedo. El botón <b>🔀</b> las coloca de golpe por jugadas, por palos o por números.</p>
   </div>
 </section>
 
@@ -191,14 +194,9 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
     <div class="monton" id="mDesc"><div class="vacio"></div><span>Montón</span></div>
   </div>
   <div class="mensaje" id="mensaje">…</div>
-  <div class="yo"><b id="yoNom">Tú</b><span id="yoPts"></span><span class="sueltasinfo" id="sueltas"></span></div>
+  <div class="yo"><div class="quien"><b id="yoNom">Tú</b> <span id="yoPts"></span></div><span class="sueltasinfo" id="sueltas"></span><button class="mini" id="bOrdenar" aria-label="Ordenar">🔀</button><button class="mini" id="bPista" aria-label="Pista">💡</button></div>
   <div class="mano" id="mano"></div>
-  <div class="acciones">
-    <button id="bOrdenar">Ordenar</button>
-    <button id="bPista">💡 Pista</button>
-    <button id="bTirar" class="prim" disabled>Tirar</button>
-    <button id="bCerrar" class="cerrar" disabled>Cerrar</button>
-  </div>
+
 </section>
 
 <div class="velo oculto" id="velo"><div class="ventana" id="ventana"></div></div>
@@ -648,7 +646,6 @@ const OPC = [
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
   { k: 'nivel', t: 'Dificultad de los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
-  { k: 'grandes', t: 'Tamaño de mis cartas', op: [[false, 'Normal'], [true, 'Grandes']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'nombre', t: 'Tu nombre', txt: true },
   { k: 'nombres', t: 'Nombres de los rivales (separados por comas)', txt: true },
@@ -743,7 +740,7 @@ function empezarMano() {
   setTimeout(() => { if (t === token) avanzar(); }, 1100);
 }
 
-function mensaje(t, tuyo) { const m = $('mensaje'); m.textContent = t; m.classList.toggle('tuyo', !!tuyo); }
+function mensaje(t, tuyo) { const m = $('mensaje'); m.textContent = t; m.classList.toggle('tuyo', !!tuyo); if (G) ajustarTamano(G.jugadores[YO].mano.length); }
 
 function avanzar() {
   if (!G || G.terminada) return;
@@ -751,7 +748,7 @@ function avanzar() {
   pintar(); guardar();
   if (G.jugadores[G.turno].humano) {
     if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {} }
-    else mensaje('Elige la carta que tiras', true);
+    else mensaje('Arrastra al montón la carta que tiras', true);
     return;
   }
   setTimeout(() => { if (t === token) turnoIA(t); }, ESPERA() * 0.6);
@@ -791,21 +788,41 @@ function cogerYo(deDesc) {
   const c = robar(YO, deDesc);
   if (!c) return manoNula();
   nueva = c.id; sel = null; pistaId = null;
-  mensaje(deDesc ? `Has cogido ${nombreCarta(c)}. Ahora tira una` : `Te ha salido ${nombreCarta(c)}. Ahora tira una`, true);
+  mensaje(deDesc ? `Has cogido ${nombreCarta(c)}. Arrastra al montón la que tiras` : `Te ha salido ${nombreCarta(c)}. Arrastra al montón la que tiras`, true);
   pintar(); guardar();
 }
+/* ---------- Tocar, dar la vuelta y arrastrar cartas ---------- */
+let volteada = null, tVuelta = null, ultToque = { id: null, t: 0 };
 function tocarCarta(id) {
+  const ahora = Date.now();
+  if (ultToque.id === id && ahora - ultToque.t < 400) { ultToque = { id: null, t: 0 }; return dobleToque(id); }
+  ultToque = { id, t: ahora };
+  if (volteada === id) return;
   if (!miTurno() || G.fase !== 'tirar') return;
-  if (sel === id) return tirarYo();
-  sel = id; pintar();
+  sel = sel === id ? null : id; pintar();
 }
+function dobleToque(id) {
+  if (volteada === id) { enderezar(); return; }
+  if (!miTurno() || G.fase !== 'tirar') return aviso('Para cerrar, espera a tu turno y roba primero');
+  if (id === G.cogida) return aviso('No puedes cerrar con la carta que acabas de coger');
+  if (!puedeCerrarCon(analizar(G.jugadores[YO].mano.filter(x => x.id !== id)))) return aviso('Con esa carta todavía no puedes cerrar 🙂');
+  volteada = id; sel = id; pintar();
+  aviso('Carta boca abajo 🂠 Arrástrala al montón para cerrar');
+  relojVuelta();
+}
+function relojVuelta() { clearTimeout(tVuelta); tVuelta = setTimeout(() => { if (volteada !== null && !(arr && arr.moviendo)) enderezar(); }, 7000); }
+function enderezar() { clearTimeout(tVuelta); if (volteada === null) return; volteada = null; if (G) pintar(); }
 
-/* ---------- Mover cartas con el dedo ---------- */
 let arr = null; // {id, x0, y0, moviendo, fantasma}
 $('mano').addEventListener('pointerdown', e => {
   const el = e.target.closest('.carta'); if (!el || !G) return;
   arr = { id: +el.dataset.id, x0: e.clientX, y0: e.clientY, moviendo: false, pid: e.pointerId };
 });
+function sobreMesa(x, y) {
+  if (!miTurno() || G.fase !== 'tirar') return false;
+  const r = document.querySelector('.mesa').getBoundingClientRect();
+  return x > r.left - 20 && x < r.right + 20 && y > r.top - 30 && y < r.bottom + 30;
+}
 window.addEventListener('pointermove', e => {
   if (!arr || e.pointerId !== arr.pid) return;
   const dx = e.clientX - arr.x0, dy = e.clientY - arr.y0;
@@ -815,15 +832,20 @@ window.addEventListener('pointermove', e => {
     const r = el.getBoundingClientRect();
     arr.moviendo = true; arr.w = r.width; arr.ox = arr.x0 - r.left; arr.oy = arr.y0 - r.top;
     arr.fantasma = el.cloneNode(true);
-    arr.fantasma.classList.remove('sel', 'pista');
-    Object.assign(arr.fantasma.style, { position: 'fixed', width: r.width + 'px', left: 0, top: 0, zIndex: 50, pointerEvents: 'none', transform: 'scale(1.08) rotate(-3deg)', boxShadow: '0 14px 28px rgba(0,0,0,.55)' });
+    arr.fantasma.classList.remove('sel', 'pista', 'nueva', 'hueco');
+    Object.assign(arr.fantasma.style, { position: 'fixed', width: r.width + 'px', left: 0, top: 0, zIndex: 50, pointerEvents: 'none', transform: 'scale(1.08) rotate(-3deg)', boxShadow: '0 14px 28px rgba(0,0,0,.55)', transition: 'transform .15s' });
     document.body.appendChild(arr.fantasma);
+    clearTimeout(tVuelta);
     pintar();
   }
   e.preventDefault();
   arr.fantasma.style.left = (e.clientX - arr.ox) + 'px';
   arr.fantasma.style.top = (e.clientY - arr.oy) + 'px';
-  // ¿sobre qué hueco está el dedo?
+  const enMesa = sobreMesa(e.clientX, e.clientY);
+  document.querySelector('.mesa').classList.toggle('destino', enMesa);
+  arr.fantasma.style.transform = enMesa ? 'scale(.85) rotate(4deg)' : 'scale(1.08) rotate(-3deg)';
+  if (enMesa) return;
+  // ¿sobre qué hueco de la mano está el dedo?
   const cartas = [...$('mano').querySelectorAll('.carta')];
   let mejor = -1, dist = 1e9;
   cartas.forEach((c, k) => { const r = c.getBoundingClientRect(); const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)); if (d < dist) { dist = d; mejor = k; } });
@@ -836,32 +858,40 @@ window.addEventListener('pointermove', e => {
 function soltar(e) {
   if (!arr || (e && e.pointerId !== arr.pid)) return;
   const a = arr; arr = null;
-  if (a.moviendo) { a.fantasma.remove(); pintar(); guardar(); }
-  else if (e && e.type === 'pointerup') tocarCarta(a.id);
+  document.querySelector('.mesa').classList.remove('destino');
+  if (!a.moviendo) { if (e && e.type === 'pointerup') tocarCarta(a.id); return; }
+  a.fantasma.remove();
+  if (e && e.type === 'pointerup' && sobreMesa(e.clientX, e.clientY)) {
+    if (volteada === a.id) return cerrarYo(a.id);
+    enderezar();
+    return tirarYo(a.id);
+  }
+  // vuelve a la mano: si estaba boca abajo, se da la vuelta para verla
+  if (volteada === a.id) enderezar();
+  pintar(); guardar();
 }
 window.addEventListener('pointerup', soltar);
 window.addEventListener('pointercancel', soltar);
 
-$('bTirar').onclick = tirarYo;
-function tirarYo() {
-  if (!miTurno() || G.fase !== 'tirar' || sel === null) return;
-  if (sel === G.cogida) return aviso('No puedes tirar la carta que acabas de coger del montón');
-  const c = G.jugadores[YO].mano.find(x => x.id === sel);
-  tirar(YO, sel); sel = null; nueva = null; pistaId = null;
+function tirarYo(id) {
+  if (!miTurno() || G.fase !== 'tirar') return;
+  if (id === G.cogida) { pintar(); return aviso('No puedes tirar la carta que acabas de coger del montón'); }
+  const c = G.jugadores[YO].mano.find(x => x.id === id); if (!c) return;
+  tirar(YO, id); sel = null; nueva = null; pistaId = null; volteada = null;
   G.jugadores[YO].ultimo = '';
   mensaje(`Has tirado ${nombreCarta(c)}`);
   pintar(true);
   const t = ++token;
   setTimeout(() => { if (t === token) avanzar(); }, 500);
 }
-$('bCerrar').onclick = () => {
-  if (!miTurno() || G.fase !== 'tirar' || sel === null) return;
-  const resto = G.jugadores[YO].mano.filter(x => x.id !== sel);
-  if (!puedeCerrarCon(analizar(resto))) return aviso('Todavía no puedes cerrar con esa carta');
-  if (sel === G.cogida) return aviso('No puedes cerrar con la carta que acabas de coger');
-  const res = cerrar(YO, sel); sel = null;
+function cerrarYo(id) {
+  if (!miTurno() || G.fase !== 'tirar') return;
+  const resto = G.jugadores[YO].mano.filter(x => x.id !== id);
+  if (id === G.cogida || !puedeCerrarCon(analizar(resto))) { enderezar(); return aviso('Todavía no puedes cerrar con esa carta'); }
+  clearTimeout(tVuelta); volteada = null; sel = null;
+  const res = cerrar(YO, id);
   finMano(res);
-};
+}
 $('bOrdenar').onclick = () => {
   if (!G) return;
   G.jugadores[YO].orden = ordenAuto(G.jugadores[YO].mano, orden); pintar(); guardar();
@@ -875,7 +905,7 @@ $('bPista').onclick = () => {
     return aviso(coge ? '💡 Te conviene coger la carta del montón' : '💡 Mejor roba del mazo');
   }
   const ci = mejorCierre(G.jugadores[YO].mano, G.cogida);
-  if (ci) { pistaId = ci.c.id; sel = ci.c.id; pintar(); return aviso(`💡 ¡Puedes cerrar tirando ${nombreCarta(ci.c)}!`); }
+  if (ci) { pistaId = ci.c.id; sel = ci.c.id; pintar(); return aviso(`💡 ¡Puedes cerrar! Toca dos veces ${nombreCarta(ci.c)} y llévala al montón`); }
   const mt = mejorTirada(YO, G.jugadores[YO].mano, 2, G.cogida);
   pistaId = mt.c.id; sel = mt.c.id; pintar();
   aviso(`💡 Yo tiraría ${nombreCarta(mt.c)}`);
@@ -933,9 +963,9 @@ function pintar(flash) {
   const banda = {};
   a.jugadas.forEach((j, k) => j.cartas.forEach(c => banda[c.id] = BANDAS[k % BANDAS.length]));
   const mano = $('mano');
-  mano.classList.toggle('g3', !!S.grandes);
   mano.innerHTML = lista.map(c => {
     const cls = [arr && arr.moviendo && arr.id === c.id ? 'hueco' : '', sel === c.id && !(arr && arr.moviendo) ? 'sel' : '', nueva === c.id ? 'nueva' : '', pistaId === c.id ? 'pista' : ''].join(' ');
+    if (volteada === c.id) return `<div class="carta dorso volteada ${cls}" data-id="${c.id}"></div>`;
     return htmlCarta(c, cls).replace(/<\/div>$/, banda[c.id] ? `<i class="banda" style="background:${banda[c.id]}"></i></div>` : '</div>');
   }).join('');
   // sueltas / cierre
@@ -947,12 +977,11 @@ function pintar(flash) {
   }
   const si = $('sueltas');
   si.classList.toggle('oculto', !S.ayudas);
-  if (tirando && puedeCerrar) { si.textContent = '✅ ¡Puedes cerrar!'; si.classList.add('cierra'); }
-  else { si.textContent = `Sin ligar: ${a.muertos} pts`; si.classList.remove('cierra'); }
-  if (tirando && S.ayudas && puedeCerrar && !cierraSel) mensaje('¡Puedes cerrar! Elige la carta que tiras boca abajo y pulsa Cerrar', true);
-  $('bTirar').disabled = !(tirando && sel !== null);
-  $('bCerrar').disabled = !(tirando && cierraSel);
+  if (tirando && puedeCerrar) { si.textContent = '✅ Cierra'; si.classList.add('cierra'); }
+  else { si.textContent = `Sueltas: ${a.muertos}`; si.classList.remove('cierra'); }
+  if (tirando && S.ayudas && puedeCerrar) mensaje(volteada !== null ? 'Arrastra la carta boca abajo al montón para cerrar' : '¡Puedes cerrar! Toca dos veces la carta y llévala boca abajo al montón', true);
   $('bPista').disabled = !S.ayudas;
+  ajustarTamano(lista.length);
 }
 
 /* ---------- Fin de mano ---------- */
@@ -1005,6 +1034,29 @@ function finPartida(titulo) {
   h += G.jugadores.map(p => `<div class="fila"><div class="top"><span>${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p === g ? pts(p.puntos) + (p.rayas ? ' · ' + p.rayas + (p.rayas === 1 ? ' raya' : ' rayas') : '') : (p.rayas === 1 ? '1 raya' : p.rayas + ' rayas') + ' · ' + euros(p.rayas * S.raya)}</span></div></div>`).join('');
   ventana(h, [{ t: 'Otra partida', f: empezarPartida }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
 }
+
+/* ---------- Que todo quepa en la pantalla ---------- */
+function ajustarTamano(n) {
+  const mano = $('mano'), j = $('juego');
+  if (j.classList.contains('oculto')) return;
+  const vh = window.innerHeight, vw = Math.min(window.innerWidth, 1100) - 24;
+  // montones: más grandes en pantallas altas
+  j.style.setProperty('--mw', Math.round(Math.max(56, Math.min(110, vh * 0.105))) + 'px');
+  const W = mano.clientWidth || vw, H = mano.clientHeight - 16;
+  if (H <= 0) return;
+  const gap = Math.round(Math.max(5, Math.min(10, W / 60)));
+  let mejor = { cw: 0, cols: 4 };
+  for (let cols = 2; cols <= Math.max(n, 2); cols++) {
+    const filas = Math.ceil(Math.max(n, 7) / cols);
+    const cw = Math.min((W - gap * (cols - 1)) / cols, ((H - gap * (filas - 1)) / filas) / 1.5, 150);
+    if (cw > mejor.cw + 0.5) mejor = { cw, cols };
+  }
+  mano.style.setProperty('--cols', mejor.cols);
+  mano.style.setProperty('--cw', Math.floor(mejor.cw) + 'px');
+  mano.style.setProperty('--gap', gap + 'px');
+}
+let tRes;
+window.addEventListener('resize', () => { clearTimeout(tRes); tRes = setTimeout(() => { if (G && !$('juego').classList.contains('oculto')) pintar(); }, 120); });
 
 ir('inicio');
 // Funciona sin internet una vez instalada
