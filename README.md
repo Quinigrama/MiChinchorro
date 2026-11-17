@@ -6,9 +6,9 @@ El **chinchón** (o chinchorro) de toda la vida, con baraja española, para juga
 
 ## Qué tiene
 - Baraja de **40 o 48 cartas**, con **0, 1 o 2 comodines**
-- De **2 a 5 jugadores** (tú contra el ordenador)
+- De **2 a 5 jugadores** (por defecto MCarmen contra Matilde, Elvira y Pepita)
 - Rivales en **Fácil, Normal o Difícil**, a la velocidad que elijas
-- **Dinero de mentira**: cada uno pone su raya, quien se reengancha paga otra y el último que queda se lleva el bote
+- **Las reglas de casa**: quien pasa de 100 se apunta una **raya** (0,20 €) y se reengancha con los puntos de la que más tiene. Cuando todas se han pasado menos una, esa gana y se lleva todas las rayas (dinero de mentira)
 - Cartas grandes, ayudas, pistas y **cartas que se ordenan con el dedo**
 - Reglas de la casa ajustables: con cuánto se cierra, límite de puntos, reenganches, colgar cartas, valor de figuras y comodín…
 - La partida se guarda sola y funciona **sin internet** una vez instalada

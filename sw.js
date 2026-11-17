@@ -1,5 +1,5 @@
 // Mi Chinchorro: guarda la app para jugar sin internet
-const CACHE = 'michinchorro-v1';
+const CACHE = 'michinchorro-v2';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

@@ -173,9 +173,9 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
       <li>Cada uno tiene <b>7 cartas</b>. En tu turno <b>coges una</b> (del mazo o la de arriba del montón) y <b>tiras una</b>.</li>
       <li>Hay que <b>ligar</b> las cartas: <b>tres o cuatro iguales</b> (tres sietes) o <b>escalera</b> de tres o más del mismo palo (4, 5 y 6 de copas).</li>
       <li>Cuando casi todo está ligado puedes <b>cerrar</b>: eliges la carta que tiras y pulsas <b>Cerrar</b>.</li>
-      <li>Las cartas que no estén ligadas <b>suman puntos</b>. Quien pase del límite, <b>se va fuera</b>… o se <b>reengancha</b> pagando otra raya.</li>
+      <li>Las cartas que no estén ligadas <b>suman puntos</b>. Quien pasa de 100 <b>se apunta una raya</b> (0,20 €) y se <b>reengancha</b> con los puntos de la que más tiene.</li>
       <li>Si cierras con todo ligado te <b>quitas 10 puntos</b>. Y si haces <b>chinchón</b> (siete seguidas del mismo palo) <b>ganas la partida</b>.</li>
-      <li>El último que queda dentro se lleva <b>el bote</b> 💰.</li>
+      <li>La partida acaba cuando todas se han pasado menos una: <b>gana la que queda por debajo de 100</b> y se lleva todas las rayas 💰.</li>
     </ul>
     <p>💡 Las cartas ligadas llevan una <b>raya de color</b> debajo. Toca una carta para elegirla y vuelve a tocarla (o pulsa <b>Tirar</b>) para tirarla.</p>
     <p>👆 Para <b>colocar tus cartas a tu gusto</b>, arrástralas con el dedo. El botón <b>Ordenar</b> las coloca de golpe por jugadas, por palos o por números.</p>
@@ -184,7 +184,7 @@ section{min-height:100%;max-width:760px;margin:0 auto;padding:calc(10px + env(sa
 
 <!-- ============ JUEGO ============ -->
 <section id="juego" class="oculto">
-  <div class="cab"><button class="volver" id="bSalir">☰ Salir</button><div class="info" id="infoMano">Mano 1</div><div class="bote" id="bote">💰 0,80 €</div></div>
+  <div class="cab"><button class="volver" id="bSalir">☰ Salir</button><div class="info" id="infoMano">Mano 1</div><div class="bote" id="bote">💰 0,00 €</div></div>
   <div class="rivales" id="rivales"></div>
   <div class="mesa">
     <div class="monton" id="mMazo"><div class="carta dorso"></div><span id="nMazo">Mazo</span></div>
@@ -210,8 +210,8 @@ const PALOS = ['oros', 'copas', 'espadas', 'bastos'];
 const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
-  reenganche: true, maxReenganches: 1, colgar: true, chinchonGana: true,
-  ayudas: true, grandes: false, nombres: 'Carmen, Paco, Lola, Manolo'
+  reenganche: true, colgar: true, chinchonGana: true,
+  ayudas: true, grandes: false, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
 };
 let S = Object.assign({}, DEF);
 const rnd = Math.random;
@@ -350,11 +350,10 @@ function nuevaPartida(nombreHumano) {
   const js = [{ nombre: nombreHumano || 'Tú', humano: true }];
   for (let i = 1; i < S.jugadores; i++) js.push({ nombre: rivales[i - 1] || ('Rival ' + i), humano: false });
   G = {
-    jugadores: js.map(j => Object.assign(j, { puntos: 0, fuera: false, reeng: 0, mano: [], ultimo: '' })),
+    jugadores: js.map(j => Object.assign(j, { puntos: 0, fuera: false, reeng: 0, rayas: 0, mano: [], ultimo: '' })),
     reparte: Math.floor(rnd() * js.length), turno: 0, mazo: [], descarte: [], bote: 0,
     manoN: 0, fase: 'robar', vistas: [], cogidas: {}, terminada: false, ganador: null, turnos: 0
   };
-  G.bote = Math.round(S.raya * js.length * 100) / 100;
   return G;
 }
 
@@ -431,32 +430,33 @@ function cerrar(i, cartaId) {
   }
   res.mesa = mesa;
   for (const f of res.filas) { const p = G.jugadores[f.i]; f.antes = p.puntos; p.puntos += f.puntos; f.despues = p.puntos; }
-  // eliminados
+  // Quien pasa del límite se apunta una raya (va al bote)
   const pasan = res.filas.filter(f => G.jugadores[f.i].puntos > S.limite);
-  pasan.forEach(f => { f.eliminado = true; });
   res.eliminados = pasan.map(f => f.i);
   if (pasan.length === res.filas.length) {
-    // todos se pasan: gana el que menos tiene
+    // todas se pasan a la vez: gana la que menos tiene
     const min = Math.min(...res.filas.map(f => G.jugadores[f.i].puntos));
     const g = res.filas.find(f => G.jugadores[f.i].puntos === min).i;
     res.eliminados = res.eliminados.filter(x => x !== g);
-    res.filas.forEach(f => { if (f.i === g) f.eliminado = false; });
   }
-  res.eliminados.forEach(x => { G.jugadores[x].fuera = true; });
+  for (const f of res.filas) {
+    if (!res.eliminados.includes(f.i)) continue;
+    const p = G.jugadores[f.i];
+    f.raya = true; p.rayas++; p.fuera = true;
+    G.bote = Math.round((G.bote + S.raya) * 100) / 100;
+  }
+  // Reenganche: si quedan al menos dos por debajo, las que se pasan vuelven con los puntos de la que más tiene
+  const quedan = activos();
+  if (quedan.length >= 2 && S.reenganche) {
+    const max = Math.max(...quedan.map(x => G.jugadores[x].puntos));
+    for (const f of res.filas) if (f.raya) { const p = G.jugadores[f.i]; p.fuera = false; p.reeng++; p.puntos = max; f.reengancha = max; }
+  } else if (quedan.length <= 1) {
+    G.terminada = true; G.ganador = quedan[0];
+    res.finPartida = true;
+  }
   return res;
 }
 
-function puedeReengancharse(i) {
-  if (!S.reenganche) return false;
-  const p = G.jugadores[i];
-  return p.fuera && p.reeng < S.maxReenganches && activos().length >= 2;
-}
-function reenganchar(i) {
-  const p = G.jugadores[i];
-  const max = Math.max(...activos().map(x => G.jugadores[x].puntos));
-  p.fuera = false; p.reeng++; p.puntos = max;
-  G.bote = Math.round((G.bote + S.raya) * 100) / 100;
-}
 function comprobarFin() {
   const a = activos();
   if (a.length <= 1) { G.terminada = true; G.ganador = a[0]; }
@@ -582,13 +582,12 @@ function simularHastaFinal() {
     }
     if (!res) continue;
     if (res.finPartida) break;
-    for (const x of res.eliminados) if (!G.jugadores[x].humano && puedeReengancharse(x) && rnd() < 0.6) reenganchar(x);
     comprobarFin();
   }
   return G.ganador;
 }
 
-if (typeof module !== 'undefined') module.exports = { S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, reenganchar, puedeReengancharse, comprobarFin };
+if (typeof module !== 'undefined') module.exports = { S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
 </script>
 <script>
@@ -604,7 +603,7 @@ const LS = {
   del(k) { try { localStorage.removeItem(k); } catch (e) {} }
 };
 const euros = x => (Math.round(x * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-let PREF = Object.assign({}, DEF, { nombre: 'Tú' }, LS.get('mc-ajustes', {}));
+let PREF = Object.assign({}, DEF, LS.get('mc-ajustes2', {}));
 let CART = Object.assign({ saldo: 10, jugadas: 0, ganadas: 0 }, LS.get('mc-cartera', {}));
 const guardarCartera = () => LS.set('mc-cartera', CART);
 
@@ -635,7 +634,7 @@ document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.datas
 function pintarInicio() {
   $('saldo').textContent = euros(CART.saldo);
   $('estad').textContent = CART.jugadas ? `Partidas: ${CART.jugadas} · Ganadas: ${CART.ganadas}` : '';
-  $('bContinuar').classList.toggle('oculto', !LS.get('mc-partida', null));
+  $('bContinuar').classList.toggle('oculto', !LS.get('mc-partida2', null));
   $('abanico').innerHTML = [{ s: 0, r: 1 }, { s: 1, r: 12 }, { s: 2, r: 7 }, { s: 3, r: 11 }].map(c => htmlCarta(c)).join('');
   const cs = $('abanico').children;
   [...cs].forEach((e, k) => e.style.transform = `rotate(${(k - 1.5) * 9}deg) translateY(${Math.abs(k - 1.5) * 6}px)`);
@@ -654,10 +653,9 @@ const OPC = [
   { k: 'nombre', t: 'Tu nombre', txt: true },
   { k: 'nombres', t: 'Nombres de los rivales (separados por comas)', txt: true },
   { h: 'Dinero y puntos' },
-  { k: 'raya', t: 'La raya (lo que pone cada uno)', op: [[0.1, '0,10 €'], [0.2, '0,20 €'], [0.5, '0,50 €'], [1, '1 €']] },
-  { k: 'limite', t: 'Se queda fuera al pasar de', op: [[50, '50'], [75, '75'], [100, '100'], [150, '150']] },
-  { k: 'reenganche', t: 'Reengancharse', op: [[true, 'Sí'], [false, 'No']] },
-  { k: 'maxReenganches', t: 'Veces que uno se puede reenganchar', op: [[1, '1'], [2, '2'], [99, 'Sin límite']] },
+  { k: 'raya', t: 'Cada raya vale (se apunta al pasarse)', op: [[0.1, '0,10 €'], [0.2, '0,20 €'], [0.5, '0,50 €'], [1, '1 €']] },
+  { k: 'limite', t: 'Raya al pasar de', op: [[50, '50'], [75, '75'], [100, '100'], [150, '150']] },
+  { k: 'reenganche', t: 'Reengancharse con los puntos de la que más tiene', op: [[true, 'Sí'], [false, 'No, se queda fuera']] },
   { h: 'Reglas de la casa' },
   { k: 'maxPuntos', t: 'Cerrar con, como mucho… (puntos)', op: [[0, '0'], [1, '1'], [3, '3'], [5, '5'], [7, '7']] },
   { k: 'maxSueltas', t: 'Cartas sin ligar al cerrar', op: [[0, 'Ninguna'], [1, '1'], [2, '2'], [7, 'Da igual']] },
@@ -667,7 +665,7 @@ const OPC = [
   { k: 'chinchonGana', t: 'El chinchón gana la partida', op: [[true, 'Sí'], [false, 'No (vale −10)']] }
 ];
 function pintarAjustes() {
-  $('notaPartida').classList.toggle('oculto', !LS.get('mc-partida', null));
+  $('notaPartida').classList.toggle('oculto', !LS.get('mc-partida2', null));
   let h = '', abierto = false;
   for (const o of OPC) {
     if (o.h) { if (abierto) h += '</div>'; h += `<div class="grupo"><h3>${o.h}</h3>`; abierto = true; continue; }
@@ -678,10 +676,10 @@ function pintarAjustes() {
     h += '</div>';
   }
   $('opciones').innerHTML = h + '</div>';
-  $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => { PREF[b.dataset.k] = JSON.parse(b.dataset.v); LS.set('mc-ajustes', PREF); pintarAjustes(); });
-  $('opciones').querySelectorAll('input').forEach(i => i.oninput = () => { PREF[i.dataset.k] = i.value; LS.set('mc-ajustes', PREF); });
+  $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => { PREF[b.dataset.k] = JSON.parse(b.dataset.v); LS.set('mc-ajustes2', PREF); pintarAjustes(); });
+  $('opciones').querySelectorAll('input').forEach(i => i.oninput = () => { PREF[i.dataset.k] = i.value; LS.set('mc-ajustes2', PREF); });
 }
-$('bReset').onclick = () => { PREF = Object.assign({}, DEF, { nombre: PREF.nombre }); LS.set('mc-ajustes', PREF); pintarAjustes(); aviso('Ajustes de siempre puestos'); };
+$('bReset').onclick = () => { PREF = Object.assign({}, DEF); LS.set('mc-ajustes2', PREF); pintarAjustes(); aviso('Ajustes de siempre puestos'); };
 $('bSaldo').onclick = () => { CART.saldo = 10; guardarCartera(); aviso('Monedero a 10,00 €'); };
 $('bAjustes').onclick = () => ir('ajustes');
 $('bReglas').onclick = () => ir('reglas');
@@ -700,13 +698,14 @@ function ventana(html, botones) {
 let sel = null, orden = 0, nueva = null, token = 0, pistaId = null;
 const ESPERA = () => [1700, 1000, 450][S.velocidad];
 const YO = 0;
+const rayitas = p => p.rayas ? ` <span style="color:#ffb4a6;font-weight:900;letter-spacing:1px" title="rayas">${'|'.repeat(p.rayas)}</span>` : '';
 const pts = n => n + (Math.abs(n) === 1 ? ' punto' : ' puntos');
 
-function guardar() { if (G && !G.terminada) LS.set('mc-partida', { G, S }); }
-function borrarGuardada() { LS.del('mc-partida'); }
+function guardar() { if (G && !G.terminada) LS.set('mc-partida2', { G, S }); }
+function borrarGuardada() { LS.del('mc-partida2'); }
 
 $('bJugar').onclick = () => {
-  if (LS.get('mc-partida', null)) {
+  if (LS.get('mc-partida2', null)) {
     ventana('<h2>¿Partida nueva?</h2><div class="sub">Tienes una partida empezada. Si empiezas otra, la raya de esa se pierde.</div>',
       [{ t: 'Sí, empezar otra', f: empezarPartida }, { t: 'No, seguir la que tengo', clase: 'no', f: continuar }]);
   } else empezarPartida();
@@ -718,14 +717,12 @@ function empezarPartida() {
   Object.assign(S, PREF);
   if (S.baraja === 40 && S.jugadores === 5) S.baraja = 48;
   nuevaPartida(S.nombre || 'Tú');
-  CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; CART.jugadas++; guardarCartera();
-  G.aportado = S.raya;
+  CART.jugadas++; guardarCartera();
   ir('juego');
-  aviso(`Cada uno pone su raya: ${euros(S.raya)} 💰`);
   empezarMano();
 }
 function continuar() {
-  const d = LS.get('mc-partida', null);
+  const d = LS.get('mc-partida2', null);
   if (!d) return;
   Object.keys(S).forEach(k => delete S[k]); Object.assign(S, d.S);
   G = d.G;
@@ -911,13 +908,13 @@ function ordenarMano(mano) {
 function pintar(flash) {
   if (!G) return;
   const yo = G.jugadores[YO];
-  $('infoMano').innerHTML = `Mano ${G.manoN}<br><small style="font-weight:500;opacity:.8">fuera al pasar de ${S.limite}</small>`;
+  $('infoMano').innerHTML = `Mano ${G.manoN}<br><small style="font-weight:500;opacity:.8">raya al pasar de ${S.limite}</small>`;
   $('bote').textContent = '💰 ' + euros(G.bote);
   // rivales
   $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
     <div class="rival ${G.turno === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}">
       <div class="nom">${p.nombre}</div>
-      <div class="pts">${p.fuera ? '❌ Fuera' : pts(p.puntos)}${p.reeng ? ' 🔁' : ''}</div>
+      <div class="pts">${p.fuera ? '❌ Fuera' : pts(p.puntos)}${rayitas(p)}</div>
       <div class="barrita"><i style="width:${Math.max(0, Math.min(100, p.puntos / S.limite * 100))}%"></i></div>
       <div class="dorsos">${p.fuera ? '' : '<i></i>'.repeat(p.mano.length)}</div>
       <div class="ult">${p.ultimo || ''}</div>
@@ -930,7 +927,7 @@ function pintar(flash) {
   $('mMazo').classList.toggle('activo', robo);
   $('mDesc').classList.toggle('activo', robo && !!top);
   // mi mano
-  $('yoNom').textContent = yo.nombre + (yo.reeng ? ' 🔁' : '');
+  $('yoNom').innerHTML = yo.nombre + rayitas(yo);
   $('yoPts').textContent = pts(yo.puntos);
   const { lista, a } = ordenarMano(yo.mano);
   const banda = {};
@@ -968,45 +965,28 @@ function finMano(res) {
 function minis(cartas, cls) { return cartas.length ? `<div class="gr ${cls || ''}">${cartas.map(c => htmlCarta(c)).join('')}</div>` : ''; }
 function mostrarResultado(res) {
   const quien = G.jugadores[res.cierra];
-  if (res.finPartida) return finPartida(`¡CHINCHÓN de ${quien.humano ? 'ti' : quien.nombre}!`);
+  if (res.finPartida && res.chinchon && res.chinchon.limpio && S.chinchonGana) return finPartida(`¡CHINCHÓN de ${quien.humano ? 'ti' : quien.nombre}!`);
   const f0 = res.filas[0];
   let titulo = quien.humano ? (f0.puntos === -10 ? '¡Cierras con todo ligado! −10 🎉' : 'Has cerrado tú 👏') : `${quien.nombre} cierra${f0.puntos === -10 ? ' con −10' : ''}`;
   if (res.chinchon && !res.chinchon.limpio) titulo += ' (chinchón con comodín)';
   let h = `<h2>${titulo}</h2>`;
   for (const f of res.filas) {
     const p = G.jugadores[f.i];
-    h += `<div class="fila ${f.eliminado ? 'elim' : ''}"><div class="top"><span>${p.humano ? '⭐ ' : ''}${p.nombre}</span><span class="suma">${f.puntos >= 0 ? '+' : ''}${f.puntos} → ${f.despues}</span></div>
+    h += `<div class="fila ${f.raya ? 'elim' : ''}"><div class="top"><span>${p.humano ? '⭐ ' : ''}${p.nombre}</span><span class="suma">${f.puntos >= 0 ? '+' : ''}${f.puntos} → ${f.despues}</span></div>
       <div class="minis">${f.jugadas.map(j => minis(j.cartas)).join('')}${minis(f.colgadas, 'colg')}${minis(f.sueltas, 'suel')}</div>
       ${f.colgadas.length ? `<div class="nota">Ha colgado ${f.colgadas.length === 1 ? 'una carta' : f.colgadas.length + ' cartas'} en las jugadas del que cierra</div>` : ''}
-      ${f.eliminado ? `<div class="nota" style="opacity:1;color:#ffb4a6;font-weight:800">Se pasa de ${S.limite}: ¡fuera!</div>` : ''}</div>`;
+      ${f.raya ? `<div class="nota" style="opacity:1;color:#ffb4a6;font-weight:800">Se pasa de ${S.limite}: se apunta una raya (${euros(S.raya)})${f.reengancha !== undefined ? ` y se reengancha con ${f.reengancha}` : ''}</div>` : ''}</div>`;
   }
   h += '<div class="nota" style="text-align:center">Verde: ligadas · Azul: colgadas · Rojo: sin ligar</div>';
   ventana(h, [{ t: 'Seguir', f: () => trasResultado(res) }]);
 }
 function trasResultado(res) {
-  const yo = G.jugadores[YO];
-  if (yo.fuera && puedeReengancharse(YO)) {
-    const max = Math.max(...activos().map(x => G.jugadores[x].puntos));
-    return ventana(`<h2>Te has pasado 😬</h2><div class="sub">¿Te reenganchas? Pones otra raya de <b>${euros(S.raya)}</b> y vuelves con <b>${max} puntos</b>.</div>`,
-      [{ t: `Sí, me reengancho (${euros(S.raya)})`, f: () => { reenganchar(YO); CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; G.aportado += S.raya; guardarCartera(); aviso('¡Reenganchada! 💪'); seguirTras(res); } },
-       { t: 'No, me retiro', clase: 'no', f: () => seguirTras(res) }]);
-  }
-  seguirTras(res);
-}
-function seguirTras(res) {
-  const nombres = [];
-  for (const x of res.eliminados) {
-    const p = G.jugadores[x];
-    if (!p.humano && puedeReengancharse(x) && Math.random() < 0.6) { reenganchar(x); nombres.push(p.nombre); }
-  }
-  if (nombres.length) aviso(`${nombres.join(' y ')} se reengancha${nombres.length > 1 ? 'n' : ''} 🔁`);
+  const yo = G.jugadores[YO], f = res.filas.find(x => x.i === YO);
+  if (f && f.raya) { CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; guardarCartera(); }
   G.fase = 'robar';
-  if (G.jugadores[YO].fuera && activos().length > 1) {
-    // la partida sigue sin ti: se juega el resto en un momento
-    simularHastaFinal();
-    return finPartida();
-  }
-  if (comprobarFin()) return finPartida();
+  if (G.terminada) return finPartida();
+  if (yo.fuera && activos().length > 1) { simularHastaFinal(); return finPartida(); }
+  if (f && f.raya) aviso(`Te apuntas una raya ✏️ y vuelves con ${yo.puntos} puntos`);
   guardar();
   empezarMano();
 }
@@ -1017,11 +997,12 @@ function finPartida(titulo) {
   const gano = g && g.humano;
   if (gano) { CART.saldo = Math.round((CART.saldo + G.bote) * 100) / 100; CART.ganadas++; }
   guardarCartera();
-  const neto = (gano ? G.bote : 0) - G.aportado;
+  const yo = G.jugadores[YO];
+  const neto = (gano ? G.bote : 0) - yo.rayas * S.raya;
   let h = `<div class="premio">${gano ? '🏆' : '🃏'}</div><h2>${titulo ? titulo + '<br>' : ''}${gano ? '¡Has ganado la partida!' : g ? `Gana ${g.nombre}` : 'Fin de la partida'}</h2>`;
-  h += `<div class="sub">${gano ? `Te llevas el bote: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva' : 'Bote:'} ${euros(G.bote)}`}</div>`;
+  h += `<div class="sub">${gano ? `Te llevas todas las rayas: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva las rayas:' : 'Rayas:'} ${euros(G.bote)}`}</div>`;
   h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;
-  h += G.jugadores.map(p => `<div class="fila"><div class="top"><span>${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p.fuera ? 'fuera' : pts(p.puntos)}${p.reeng ? ' · 🔁×' + p.reeng : ''}</span></div></div>`).join('');
+  h += G.jugadores.map(p => `<div class="fila"><div class="top"><span>${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p === g ? pts(p.puntos) + (p.rayas ? ' · ' + p.rayas + (p.rayas === 1 ? ' raya' : ' rayas') : '') : (p.rayas === 1 ? '1 raya' : p.rayas + ' rayas') + ' · ' + euros(p.rayas * S.raya)}</span></div></div>`).join('');
   ventana(h, [{ t: 'Otra partida', f: empezarPartida }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
 }
 
