@@ -18,5 +18,7 @@ El **chinchón** (o chinchorro) de toda la vida, con baraja española, para juga
 - **Android (Chrome):** abre el enlace → menú ⋮ → *Añadir a pantalla de inicio* / *Instalar aplicación*
 - **iPhone (Safari):** abre el enlace → botón Compartir → *Añadir a pantalla de inicio*
 
-## Usar tus propias cartas
-En `index.html` cambia `const IMAGENES = null;` por `{ruta:'cartas/', ext:'png'}` y sube a la carpeta `cartas/` los archivos `oros-1.png` … `bastos-12.png`, `comodin.png` y `dorso.png`.
+## Naipes
+En **Ajustes → Naipes** se elige entre:
+- **Clásicos**: la baraja española de siempre (carpeta `naipes/`, archivos `01o.jpg` … `12b.jpg`: o = oros, c = copas, e = espadas, b = bastos), con números grandes opcionales en la esquina
+- **Dibujados**: cartas sencillas y muy legibles dibujadas por la app

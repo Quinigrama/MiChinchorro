@@ -110,7 +110,12 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .carta.dorso::before{content:"MC";position:absolute;inset:18%;border:2px solid #fff3d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff3d6;font-weight:900;font-size:22cqw}
 .carta.comodin .jk{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:44cqw}
 .carta.comodin .jk small{font-size:13cqw;font-weight:900;color:#6a1b9a;margin-top:4cqw}
-.carta img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:7px}
+.carta img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:7px;pointer-events:none;-webkit-user-drag:none}
+.carta.foto{background:#fff;border-color:#cfc6b0}
+.carta .indice{position:absolute;top:2cqw;left:2cqw;min-width:32cqw;padding:1cqw 3cqw;background:rgba(255,255,255,.96);border-radius:9cqw;font-weight:900;font-size:25cqw;line-height:1.1;color:var(--c);text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.seg button.naipe{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px}
+.naipe .trio{display:flex;justify-content:center}
+.naipe .trio .carta{width:46px;margin:0 -5px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
 .c-oros{--c:#9a6b00}.c-copas{--c:#c62828}.c-espadas{--c:#1e4f9a}.c-bastos{--c:#2e7d32}
 
 /* ---------- Ventana ---------- */
@@ -213,7 +218,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, colgar: true, chinchonGana: true,
-  ayudas: true, grandes: false, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
+  ayudas: true, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
 };
 let S = Object.assign({}, DEF);
 const rnd = Math.random;
@@ -594,9 +599,8 @@ if (typeof module !== 'undefined') module.exports = { S, DEF, analizar, colgar, 
 </script>
 <script>
 /* ================= INTERFAZ ================= */
-// Para usar tus propias imágenes de la baraja: pon aquí la carpeta, p. ej. {ruta:'cartas/', ext:'png'}
-// y nombra los archivos oros-1.png … bastos-12.png, comodin.png y dorso.png
-const IMAGENES = null;
+// Naipes clásicos: imágenes en la carpeta naipes/ (01o.jpg … 12b.jpg)
+const LETRA = ['o', 'c', 'e', 'b'];
 
 const $ = id => document.getElementById(id);
 const LS = {
@@ -612,17 +616,15 @@ const guardarCartera = () => LS.set('mc-cartera', CART);
 /* ---------- Dibujar cartas ---------- */
 function htmlCarta(c, extra = '') {
   if (!c) return '<div class="vacio"></div>';
-  if (IMAGENES) {
-    const f = c.j ? 'comodin' : PALOS[c.s] + '-' + c.r;
-    return `<div class="carta ${extra}" data-id="${c.id}"><img src="${IMAGENES.ruta}${f}.${IMAGENES.ext}" alt="${nombreCarta(c)}"></div>`;
-  }
   if (c.j) return `<div class="carta comodin ${extra}" data-id="${c.id}"><div class="jk">🃏<small>COMODÍN</small></div></div>`;
   const p = PALOS[c.s], fig = { 10: 'SOTA', 11: 'CABALLO', 12: 'REY' }[c.r];
+  if (PREF.naipes === 'clasicas')
+    return `<div class="carta foto c-${p} ${extra}" data-id="${c.id}" aria-label="${nombreCarta(c)}"><img src="naipes/${String(c.r).padStart(2, '0')}${LETRA[c.s]}.jpg" alt="" draggable="false">${PREF.indices ? `<span class="indice">${c.r}</span>` : ''}</div>`;
   return `<div class="carta c-${p} ${fig ? 'fig' : ''} ${extra}" data-id="${c.id}" aria-label="${nombreCarta(c)}">
     <span class="esq">${c.r}</span>
     <svg class="palo"><use href="#p-${p}"/></svg>${fig ? `<span class="figtxt">${fig}</span>` : ''}</div>`;
 }
-const dorso = () => IMAGENES ? `<div class="carta"><img src="${IMAGENES.ruta}dorso.${IMAGENES.ext}" alt=""></div>` : '<div class="carta dorso"></div>';
+
 
 /* ---------- Pantallas ---------- */
 function ir(id) {
@@ -645,6 +647,8 @@ function pintarInicio() {
 /* ---------- Ajustes ---------- */
 const OPC = [
   { h: 'La partida' },
+  { k: 'naipes', t: 'Naipes', vis: true },
+  { k: 'indices', t: 'Números grandes en los naipes clásicos', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'jugadores', t: 'Número de jugadores', op: [[2, '2'], [3, '3'], [4, '4'], [5, '5']] },
   { k: 'baraja', t: 'Baraja', op: [[40, '40 cartas'], [48, '48 cartas (con 8 y 9)']] },
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
@@ -671,6 +675,13 @@ function pintarAjustes() {
   for (const o of OPC) {
     if (o.h) { if (abierto) h += '</div>'; h += `<div class="grupo"><h3>${o.h}</h3>`; abierto = true; continue; }
     h += `<div class="opc"><div class="tit">${o.t}</div>`;
+    if (o.vis) {
+      const muestra = [{ s: 0, r: 1 }, { s: 1, r: 12 }, { s: 2, r: 7 }];
+      const opcion = (v, l) => { const g = PREF.naipes; PREF.naipes = v; const cs = muestra.map(c => htmlCarta(c)).join(''); PREF.naipes = g;
+        return `<button data-k="naipes" data-v='"${v}"' aria-pressed="${PREF.naipes === v}" class="naipe"><span class="trio">${cs}</span>${l}</button>`; };
+      h += `<div class="seg">${opcion('clasicas', 'Clásicos')}${opcion('dibujadas', 'Dibujados')}</div></div>`;
+      continue;
+    }
     if (o.txt) h += `<input data-k="${o.k}" value="${String(PREF[o.k]).replace(/"/g, '&quot;')}">`;
     else h += `<div class="seg">${o.op.map(([v, l]) => `<button data-k="${o.k}" data-v='${JSON.stringify(v)}' aria-pressed="${PREF[o.k] === v}">${l}</button>`).join('')}</div>`;
     if (o.k === 'baraja' && PREF.baraja === 40 && PREF.jugadores === 5) h += '<div class="nota">Con 5 jugadores y 40 cartas apenas queda mazo: mejor la de 48.</div>';
