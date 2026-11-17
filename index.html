@@ -22,6 +22,9 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 
 /* ---------- Inicio ---------- */
 #inicio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;min-height:100vh}
+#inicio{position:relative}
+.instalar{position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.12);color:var(--txt);font-size:21px;padding:0;opacity:.75}
+.instalar:active{opacity:1;transform:scale(.94)}
 #inicio h1{font-size:44px;margin:0;letter-spacing:.5px;text-shadow:0 3px 0 rgba(0,0,0,.35)}
 #inicio h1 span{color:var(--oro)}
 .abanico{display:flex;justify-content:center;height:130px;margin:6px 0 4px}
@@ -149,6 +152,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 
 <!-- ============ INICIO ============ -->
 <section id="inicio">
+  <button id="bInstalar" class="instalar oculto" aria-label="Instalar la app" title="Instalar">📲</button>
   <div class="abanico" id="abanico"></div>
   <h1>Mi <span>Chinchorro</span></h1>
   <div class="monedero">Monedero: <b id="saldo">10,00 €</b><div class="pie" id="estad"></div></div>
@@ -1057,6 +1061,25 @@ function ajustarTamano(n) {
 }
 let tRes;
 window.addEventListener('resize', () => { clearTimeout(tRes); tRes = setTimeout(() => { if (G && !$('juego').classList.contains('oculto')) pintar(); }, 120); });
+
+/* ---------- Botón de instalar ---------- */
+let pedirInstalar = null;
+const instalada = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function mirarInstalar() { $('bInstalar').classList.toggle('oculto', instalada() || location.protocol !== 'https:' || /claude/.test(location.hostname)); }
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedirInstalar = e; mirarInstalar(); });
+window.addEventListener('appinstalled', () => { pedirInstalar = null; $('bInstalar').classList.add('oculto'); aviso('¡Instalada! Ya la tienes en la pantalla de inicio 🎉'); });
+$('bInstalar').onclick = async () => {
+  if (pedirInstalar) {
+    try { pedirInstalar.prompt(); const r = await pedirInstalar.userChoice; if (r && r.outcome === 'accepted') $('bInstalar').classList.add('oculto'); } catch (e) {}
+    pedirInstalar = null; return;
+  }
+  ventana(esIOS
+    ? '<h2>📲 Instalar en el iPhone</h2><div class="sub">1. Toca el botón <b>Compartir</b> de Safari (el cuadrado con la flecha ⬆️)<br><br>2. Elige <b>Añadir a pantalla de inicio</b><br><br>3. Pulsa <b>Añadir</b></div>'
+    : '<h2>📲 Instalar la app</h2><div class="sub">Abre el menú del navegador <b>⋮</b> (arriba a la derecha) y elige <b>Instalar aplicación</b> o <b>Añadir a pantalla de inicio</b>.</div>',
+    [{ t: 'Entendido' }]);
+};
+mirarInstalar();
 
 ir('inicio');
 // Funciona sin internet una vez instalada
