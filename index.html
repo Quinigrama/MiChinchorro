@@ -152,6 +152,10 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 @keyframes flash{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
 @media (max-height:720px){.avatar{width:30px;height:30px}.mensaje{font-size:16px;min-height:40px;padding:6px 10px}.rival .ult{height:1.25em}.rival .nom{font-size:15px}.cab .info small{display:none}}
 @media (max-height:560px){.rival .ult,.rival .barrita{display:none}}
+.bocadillo{position:fixed;z-index:35;background:#fffdf5;color:#2a2116;padding:9px 13px;border-radius:16px;font-size:17px;font-weight:700;line-height:1.25;box-shadow:0 8px 20px rgba(0,0,0,.45);max-width:min(270px,76vw);pointer-events:none;animation:pop .28s cubic-bezier(.3,1.6,.6,1)}
+.bocadillo::before{content:"";position:absolute;top:-9px;left:calc(var(--fl,50%) - 9px);border:9px solid transparent;border-top:0;border-bottom-color:#fffdf5}
+.bocadillo.fuera{opacity:0;transform:translateY(-6px);transition:opacity .35s,transform .35s}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -228,7 +232,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, colgar: true, chinchonGana: true,
-  ayudas: true, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
+  ayudas: true, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
 };
 let S = Object.assign({}, DEF);
 const rnd = Math.random;
@@ -664,6 +668,7 @@ const OPC = [
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
   { k: 'nivel', t: 'Dificultad de los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
+  { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'nombre', t: 'Tu nombre', txt: true },
   { k: 'nombres', t: 'Nombres de los rivales (separados por comas)', txt: true },
@@ -798,6 +803,70 @@ const cartaMonton = () => $('mDesc').querySelector('.carta, .vacio');
 const avatarDe = i => document.querySelector(`.rival[data-i="${i}"] .avatar`);
 const espera = ms => new Promise(r => setTimeout(r, ms));
 
+
+/* ---------- Comentarios de las jugadoras ---------- */
+const FRASES = {
+  inicio: ['¡A ver quién paga hoy! 💸', 'Barajad bien, que la última vez hubo trampa 😏', 'Hoy vengo con suerte 🍀', '¡Venga, que empiece la partida! 🃏', 'Yo hoy no pago ni una raya, avisadas estáis 😌'],
+  coge: ['Gracias, {p}, me venía de perlas 😘', '¡Uy, qué bien! Esa me la quedo', 'Mmm… esta me gusta 🤭', 'Tú tira, {p}, tú tira, que yo recojo 😏', '¡Justo la que buscaba! 😍'],
+  cogeTuya: ['Gracias, {h}, me venía de perlas 😘', '{h}, qué generosa estás hoy 🤭', '¡Ay, {h}, que me la has puesto a huevo! 😂', 'Esa no la tenías que haber tirado, {h} 😏'],
+  figura: ['Ahí va un rey, que pesa mucho 👑', 'Fuera figuras, que suman mucho', 'Toma, para quien la quiera 😅', 'Esa no me sirve ni para abanicarme 🪭'],
+  cierra: ['¡Cierro! A contar, chicas 😎', '¡Hala, cerrado! 😏', 'Lo siento, guapas, pero cierro 💅', '¡Cierre al canto! 🎺', '¡A contar puntitos! 🧮'],
+  menos10: ['¡Menos diez! Toma ya 💃', '¡Todo ligado! Aprended, aprended 😌', '¡Menos diez! ¿Quién da más? 😎'],
+  chinchon: ['¡¡Chinchón!! 😱🎉', '¡No me lo puedo creer! ¡CHINCHÓN! 🥳'],
+  tuCierras: ['¡Qué suerte tiene la {h}! 🍀', '¡Ya ha cerrado esta! 😱', 'Hay que vigilar a {h}, que es muy lista 🕵️‍♀️', '¡{h}, eres una lagarta! 😂', '¡Pero si yo iba a cerrar ahora! 😤'],
+  raya: ['¡Ay, otra raya! 😩', 'Apúntamela, que ya la pago…', 'Esto es un robo, ¡un robo! 😤', 'Me reengancho, que esto no ha acabado 💪', 'Bueno, la próxima es mía…', '¡Qué mala pata tengo hoy! 🙈'],
+  rayaTuya: ['¡Una rayita para {h}! 😜', '¡{h}, a pagar! Ji, ji 🤭', 'Esa raya te queda muy bien, {h} 😂', '¡Ay, {h}, que te vas a arruinar! 💸'],
+  gana: ['Ji, ji, ji 🤭', 'Qué bien voy… no digo nada 🤐', 'Hoy me llevo el bote, ya veréis 💰', 'Ay, qué suerte tengo hoy 🍀', 'Tranquilas, que no se me sube a la cabeza 😌'],
+  cerca: ['Uy, que me la cargo… 😬', 'Con cuidadito, que voy justa', 'Virgen santa, qué puntos tengo 🙈', 'Ay, que esta mano me toca pagar…'],
+  prisa: ['¿Piensas tirar hoy, {h}? ☕', '{h}, que se enfría el café ☕', 'Venga, {h}, que nos hacemos mayores 😅', 'Piénsatelo, piénsatelo… 🥱', '{h}, ¿te has dormido? 😴']
+};
+const PROB = { inicio: .9, coge: .45, cogeTuya: .7, figura: .15, cierra: 1, menos10: 1, chinchon: 1, tuCierras: .8, raya: .8, rayaTuya: .85, gana: .5, cerca: .45, prisa: 1 };
+let ultimaFrase = {}, tUltBocadillo = 0;
+function rivalesActivos() { return activos().filter(i => i !== YO); }
+function decir(i, tipo, vars = {}, forzar) {
+  if (!PREF.charla || !G || i == null || i === YO) return false;
+  const mult = PREF.charla === 1 ? 0.5 : 1;
+  if (!forzar && Math.random() > PROB[tipo] * mult) return false;
+  const ahora = Date.now();
+  if (!forzar && ahora - tUltBocadillo < 2500) return false;
+  const caja = document.querySelector(`.rival[data-i="${i}"]`); if (!caja) return false;
+  const lista = FRASES[tipo].filter(f => f !== ultimaFrase[tipo]);
+  let f = lista[Math.floor(Math.random() * lista.length)];
+  ultimaFrase[tipo] = f;
+  const h = G.jugadores[YO].nombre;
+  f = f.replace(/\{h\}/g, h).replace(/\{p\}/g, vars.p || h);
+  tUltBocadillo = ahora;
+  document.querySelectorAll(`.bocadillo[data-i="${i}"]`).forEach(b => b.remove());
+  const b = document.createElement('div');
+  b.className = 'bocadillo'; b.dataset.i = i; b.textContent = f;
+  document.body.appendChild(b);
+  const r = caja.getBoundingClientRect(), bw = b.offsetWidth;
+  const cx = r.left + r.width / 2;
+  const left = Math.max(8, Math.min(window.innerWidth - bw - 8, cx - bw / 2));
+  b.style.left = left + 'px'; b.style.top = (r.bottom + 10) + 'px';
+  b.style.setProperty('--fl', (cx - left) + 'px');
+  setTimeout(() => b.classList.add('fuera'), 2900);
+  setTimeout(() => b.remove(), 3300);
+  return true;
+}
+function alguna(tipo, vars, forzar) { const r = rivalesActivos(); if (r.length) return decir(r[Math.floor(Math.random() * r.length)], tipo, vars, forzar); }
+// Tras una mano: rayas, quién va ganando y quién va justa
+function reacciones(res) {
+  if (!PREF.charla || !res || !res.filas) return;
+  const cola = [];
+  for (const f of res.filas) if (f.raya) cola.push(f.i === YO ? () => alguna('rayaTuya') : () => decir(f.i, 'raya'));
+  const act = activos();
+  if (act.length > 1) {
+    const min = Math.min(...act.map(i => G.jugadores[i].puntos));
+    const lider = act.filter(i => G.jugadores[i].puntos === min);
+    if (lider.length === 1 && lider[0] !== YO) cola.push(() => decir(lider[0], 'gana'));
+    const justa = rivalesActivos().find(i => G.jugadores[i].puntos >= S.limite * 0.85);
+    if (justa !== undefined) cola.push(() => decir(justa, 'cerca'));
+  }
+  let n = 0;
+  cola.slice(0, 2).forEach((fn, k) => setTimeout(() => { tUltBocadillo = 0; fn(); }, 1300 + k * 3000));
+}
+
 /* ================= PARTIDA ================= */
 let sel = null, orden = 0, nueva = null, token = 0, pistaId = null;
 const ESPERA = () => [1700, 1000, 450][S.velocidad];
@@ -825,6 +894,7 @@ function empezarPartida() {
   CART.jugadas++; guardarCartera();
   ir('juego');
   empezarMano();
+  setTimeout(() => alguna('inicio'), 700);
 }
 function continuar() {
   const d = LS.get('mc-partida2', null);
@@ -857,6 +927,7 @@ function avanzar() {
   if (G.jugadores[G.turno].humano) {
     if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {} }
     else mensaje('Arrastra al montón la carta que tiras', true);
+    setTimeout(() => { if (t === token && miTurno()) alguna('prisa', {}, true); }, 30000);
     return;
   }
   setTimeout(() => { if (t === token) turnoIA(t); }, ESPERA() * 0.6);
@@ -868,6 +939,7 @@ async function turnoIA(t) {
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(i, deDesc);
   if (!c) return manoNula();
+  if (deDesc) { const de = G.ultimoTira; de === YO ? decir(i, 'cogeTuya') : decir(i, 'coge', { p: de != null && G.jugadores[de] ? G.jugadores[de].nombre : '' }); }
   p.ultimo = deDesc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
   mensaje(deDesc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
   // del montón se ve la carta; del mazo va boca abajo
@@ -880,10 +952,13 @@ async function turnoIA(t) {
   if (d.cierra) {
     mensaje(`¡${p.nombre} cierra!`);
     await volar(avatarDe(i), cartaMonton(), dorsoHTML, VUELO()); if (t !== token) return;
-    const res = cerrar(i, d.carta.id); return finMano(res);
+    const res = cerrar(i, d.carta.id);
+    const habla = decir(i, res.finPartida && res.chinchon ? 'chinchon' : (res.filas[0].puntos === -10 ? 'menos10' : 'cierra'), {}, true);
+    return finMano(res, habla);
   }
   await volar(avatarDe(i), cartaMonton(), htmlCarta(d.carta), VUELO()); if (t !== token) return;
-  tirar(i, d.carta.id);
+  tirar(i, d.carta.id); G.ultimoTira = i;
+  if (!d.carta.j && d.carta.r >= 10) decir(i, 'figura');
   p.ultimo += ' y tiró ' + nombreCarta(d.carta);
   mensaje(`${p.nombre} tira ${nombreCarta(d.carta)}`);
   pintar(true);
@@ -995,7 +1070,7 @@ function tirarYo(id) {
   if (!miTurno() || G.fase !== 'tirar') return;
   if (id === G.cogida) { pintar(); return aviso('No puedes tirar la carta que acabas de coger del montón'); }
   const c = G.jugadores[YO].mano.find(x => x.id === id); if (!c) return;
-  tirar(YO, id); sel = null; nueva = null; pistaId = null; volteada = null;
+  tirar(YO, id); G.ultimoTira = YO; sel = null; nueva = null; pistaId = null; volteada = null;
   G.jugadores[YO].ultimo = '';
   mensaje(`Has tirado ${nombreCarta(c)}`);
   pintar(true);
@@ -1008,7 +1083,7 @@ function cerrarYo(id) {
   if (id === G.cogida || !puedeCerrarCon(analizar(resto))) { enderezar(); return aviso('Todavía no puedes cerrar con esa carta'); }
   clearTimeout(tVuelta); volteada = null; sel = null;
   const res = cerrar(YO, id);
-  finMano(res);
+  finMano(res, alguna('tuCierras', {}, true));
 }
 $('bOrdenar').onclick = () => {
   if (!G) return;
@@ -1103,11 +1178,11 @@ function pintar(flash) {
 }
 
 /* ---------- Fin de mano ---------- */
-function finMano(res) {
+function finMano(res, habla) {
   token++;
   G.fase = 'resultado'; G.res = res;
   pintar(); guardar();
-  setTimeout(() => mostrarResultado(res), 500);
+  setTimeout(() => mostrarResultado(res), habla ? 2300 : 500);
 }
 function minis(cartas, cls) { return cartas.length ? `<div class="gr ${cls || ''}">${cartas.map(c => htmlCarta(c)).join('')}</div>` : ''; }
 function mostrarResultado(res) {
@@ -1136,6 +1211,7 @@ function trasResultado(res) {
   if (f && f.raya) aviso(`Te apuntas una raya ✏️ y vuelves con ${yo.puntos} puntos`);
   guardar();
   empezarMano();
+  reacciones(res);
 }
 function finPartida(titulo) {
   token++;
