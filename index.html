@@ -164,6 +164,12 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .bocadillo::before{content:"";position:absolute;top:-9px;left:calc(var(--fl,50%) - 9px);border:9px solid transparent;border-top:0;border-bottom-color:#fffdf5}
 .bocadillo.fuera{opacity:0;transform:translateY(-6px);transition:opacity .35s,transform .35s}
 @keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{background:rgba(255,255,255,.08);border-radius:14px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.tile b{font-size:26px;color:var(--oro);line-height:1.1}
+.tile span{font-size:14px;opacity:.85;line-height:1.2}
+.tile.bien b{color:#7bd389}.tile.mal b{color:#ffb4a6}
+.consejos li{margin-bottom:10px;font-size:18px}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -186,6 +192,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <button class="grande oculto" id="bContinuar">▶ Seguir la partida</button>
   <button class="grande" id="bJugar">🃏 Partida nueva</button>
   <button class="secund" id="bAjustes">⚙️ Ajustes</button>
+  <button class="secund" id="bEstad">📊 Mis estadísticas</button>
   <button class="secund" id="bReglas">📖 Cómo se juega</button>
   <div class="pie">El dinero es de mentira 😉</div>
 </section>
@@ -197,6 +204,13 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <div id="opciones"></div>
   <button class="secund" id="bReset" style="margin:16px auto">↺ Volver a los ajustes de siempre</button>
   <button class="secund" id="bSaldo" style="margin:0 auto 20px">💶 Poner el monedero a 10 €</button>
+</section>
+
+<!-- ============ ESTADÍSTICAS ============ -->
+<section id="estad" class="oculto">
+  <div class="barra"><button class="volver" data-ir="inicio">← Volver</button><h2>Mis estadísticas</h2></div>
+  <div id="estadDatos"></div>
+  <button class="secund" id="bBorrarEstad" style="margin:16px auto 24px">🗑️ Empezar de cero</button>
 </section>
 
 <!-- ============ REGLAS ============ -->
@@ -498,6 +512,10 @@ function comprobarFin() {
 
 /* ================= INTELIGENCIA DE LOS RIVALES ================= */
 // nivel: 0 fácil, 1 normal, 2 difícil
+/* Pesos de la valoración (Difícil = PD; la Experta usa PX, optimizados con backtesting) */
+const PD = { kPot: 0.7, wPar: 1, esc1: 1.5, esc2: 1, pel: 0.6, pelR: 2, pelS: 1.5, uRobo: 0.5 };
+const PX = Object.assign({}, PD);
+let PS = PD;
 function potencial(sueltas, nivel) {
   const vistos = new Set(G.vistas.map(c => c.s + '-' + c.r));
   const vivo = (s, r) => !vistos.has(s + '-' + r);
@@ -507,17 +525,17 @@ function potencial(sueltas, nivel) {
     const A = rs[x], B = rs[y];
     if (A.r === B.r) {
       let vivas = 0; for (let s = 0; s < 4; s++) if (s !== A.s && s !== B.s && vivo(s, A.r)) vivas++;
-      p += nivel === 2 ? vivas : 1.5;
+      p += nivel === 2 ? vivas * PS.wPar : 1.5;
     } else if (A.s === B.s) {
       const d = Math.abs(rIdx(A.r) - rIdx(B.r));
-      if (d === 1) p += 1.5; else if (d === 2) p += 1;
+      if (d === 1) p += nivel === 2 ? PS.esc1 : 1.5; else if (d === 2) p += nivel === 2 ? PS.esc2 : 1;
     }
   }
   return p;
 }
 function evaluar(mano, nivel) {
   const a = analizar(mano);
-  return { v: a.muertos - (nivel ? potencial(a.sueltas, nivel) * (nivel === 2 ? 0.7 : 0.15) : 0), a };
+  return { v: a.muertos - (nivel ? potencial(a.sueltas, nivel) * (nivel === 2 ? PS.kPot : 0.15) : 0), a };
 }
 function peligro(c, i) {
   // ¿le vendría bien al siguiente jugador? (nivel difícil)
@@ -526,8 +544,8 @@ function peligro(c, i) {
   const cog = G.cogidas[sig] || [];
   let p = 0;
   for (const x of cog) {
-    if (x.r === c.r) p += 2;
-    if (x.s === c.s && Math.abs(rIdx(x.r) - rIdx(c.r)) <= 2) p += 1.5;
+    if (x.r === c.r) p += PS.pelR;
+    if (x.s === c.s && Math.abs(rIdx(x.r) - rIdx(c.r)) <= 2) p += PS.pelS;
   }
   return p;
 }
@@ -539,7 +557,7 @@ function mejorTirada(i, mano8, nivel, prohibida) {
     const resto = mano8.filter(x => x !== c);
     const e = evaluar(resto, nivel);
     let v = e.v - valor(c) * 0.01;
-    if (nivel === 2) v += peligro(c, i) * 0.6;
+    if (nivel === 2) v += peligro(c, i) * PS.pel;
     if (!mejor || v < mejor.v) mejor = { c, v, a: e.a };
   }
   return mejor;
@@ -758,11 +776,18 @@ function roboMC(i) {
 }
 
 /* Decide el robo: true = coger del descarte */
-function iaRobo(i) {
+function conPesos(i, f) {
+  const p = G.jugadores[i], nv = p.nivel ?? S.nivel, prev = PS;
+  PS = p.pesos || (nv === 3 ? PX : PD);
+  try { return f(); } finally { PS = prev; }
+}
+function iaRobo(i) { return conPesos(i, () => iaRobo_(i)); }
+function iaTirada(i) { return conPesos(i, () => iaTirada_(i)); }
+function iaRobo_(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel);
   if (nivel === 3 && TX.mc) return roboMC(i);
   if (nivel === 3 && !TX.roboClon) return roboExperta(i);
-  if (nivel === 3) { const q = p.nivel; p.nivel = 2; const r = iaRobo(i); p.nivel = q; return r; }
+  if (nivel === 3) { const q = p.nivel; p.nivel = 2; const r = iaRobo_(i); p.nivel = q; return r; }
   const top = G.descarte[G.descarte.length - 1];
   if (!top) return false;
   const con = p.mano.concat([top]);
@@ -777,7 +802,7 @@ function iaRobo(i) {
     for (const u of noVistas) { const t = mejorTirada(i, p.mano.concat([u]), 1, null); suma += t.v; }
     const esperado = noVistas.length ? suma / noVistas.length : 99;
     const opt = mejorTirada(i, con, 1, top.id);
-    return opt && opt.v < esperado - 0.5;
+    return opt && opt.v < esperado - PS.uRobo;
   }
   const act = evaluar(p.mano, nivel).v;
   const opt = mejorTirada(i, con, nivel, top.id);
@@ -786,7 +811,7 @@ function iaRobo(i) {
   return opt && opt.v < act - umbral;
 }
 /* Decide qué tirar y si cierra: {carta, cierra} */
-function iaTirada(i) {
+function iaTirada_(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel), proh = G.cogida;
   const ci = mejorCierre(p.mano, proh);
   if (ci && nivel === 3 && TX.mc && TX.decideCierre && ci.a.muertos > 0) {
@@ -834,7 +859,7 @@ function simularHastaFinal() {
   return G.ganador;
 }
 
-if (typeof module !== "undefined") module.exports = { tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+if (typeof module !== "undefined") module.exports = { PD, PX, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
 </script>
 <script>
@@ -872,6 +897,7 @@ function ir(id) {
   window.scrollTo(0, 0);
   if (id === 'inicio') pintarInicio();
   if (id === 'ajustes') pintarAjustes();
+  if (id === 'estad') pintarEstad();
 }
 document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 
@@ -1121,6 +1147,61 @@ function reacciones(res) {
 const VIBRA = { turno: 35, cierre: [110, 70, 110] };
 function vibrar(tipo) { if (PREF.vibrar === false || !navigator.vibrate) return; try { navigator.vibrate(VIBRA[tipo]); } catch (e) {} }
 
+/* ---------- Estadísticas de la jugadora ---------- */
+const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinchones: 0, puntos: 0, pillada: 0, figurasPilladas: 0, rayas: 0, euros: 0, tiradas: 0, mejorables: 0, cierresPerdidos: 0, cogidasMonton: 0, cogidasUtiles: 0, desde: null };
+let EST = Object.assign({}, EST0, LS.get('mc-estad', {}));
+const guardarEst = () => { if (!EST.desde) EST.desde = new Date().toISOString().slice(0, 10); LS.set('mc-estad', EST); };
+function anotarTirada(mano, id) {
+  // ¿había algo mejor? (lo mismo que miraría la rival Difícil)
+  const c = mano.find(x => x.id === id); if (!c) return;
+  EST.tiradas++;
+  if (mejorCierre(mano, G.cogida)) EST.cierresPerdidos++;
+  const mejor = mejorTirada(YO, mano, 2, G.cogida);
+  const mia = evaluar(mano.filter(x => x !== c), 2).v - valor(c) * 0.01 + peligro(c, YO) * 0.6;
+  if (mejor && mia - mejor.v >= 2.5) EST.mejorables++;
+  guardarEst();
+}
+function anotarMano(res) {
+  if (res.anotada) return; res.anotada = true;
+  const f = res.filas.find(x => x.i === YO); if (!f) return;
+  EST.manos++;
+  if (res.cierra === YO) { EST.cierres++; if (f.puntos === -10) EST.menos10++; if (res.chinchon && res.chinchon.limpio) EST.chinchones++; }
+  else { EST.pillada++; EST.puntos += f.puntos; EST.figurasPilladas += f.sueltas.filter(c => !c.j && c.r >= 10).length; }
+  guardarEst();
+}
+const media = (a, b, d = 1) => b ? (a / b).toLocaleString('es-ES', { maximumFractionDigits: d }) : '–';
+function consejosPersonales() {
+  const t = [];
+  if (EST.manos < 3) return ['Juega unas cuantas manos y aquí te diré en qué puedes mejorar 😊'];
+  if (EST.cierresPerdidos > 0) t.push(`Has dejado pasar <b>${EST.cierresPerdidos}</b> ${EST.cierresPerdidos === 1 ? 'ocasión' : 'ocasiones'} de cerrar. Cuando salga «✅ Cierra», ¡plántate!`);
+  if (EST.pillada >= 3 && EST.figurasPilladas / EST.pillada >= 0.8) t.push(`Cuando cierra otra te pilla con <b>${media(EST.figurasPilladas, EST.pillada)}</b> figuras de media. Suelta antes las sotas, caballos y reyes sueltos`);
+  if (EST.tiradas >= 10 && EST.mejorables / EST.tiradas >= 0.15) t.push(`En <b>${Math.round(100 * EST.mejorables / EST.tiradas)}</b> de cada 100 tiradas había una carta mejor para tirar. Prueba el botón 💡 de vez en cuando para comparar`);
+  if (EST.manos >= 6 && EST.cierres / EST.manos < 0.2) t.push('Cierras pocas manos. Guarda una carta baja (as, 2 o 3) para poder plantarte antes');
+  if (EST.pillada >= 3 && EST.puntos / EST.pillada > 18) t.push('Cuando cierran otras te comes muchos puntos. Si una coge dos veces del montón, suelta tus cartas altas');
+  if (!t.length) t.push('¡Vas de maravilla! Sigue así: cierra pronto y no regales cartas 🏆');
+  return t.slice(0, 3);
+}
+function pintarEstad() {
+  const e = EST, saldo = CART.saldo;
+  const tile = (n, l, cls = '') => `<div class="tile ${cls}"><b>${n}</b><span>${l}</span></div>`;
+  $('estadDatos').innerHTML = `
+    <div class="grupo"><h3>🃏 Partidas</h3><div class="tiles">
+      ${tile(e.partidas, 'jugadas')}${tile(e.ganadas, 'ganadas')}${tile(e.partidas ? Math.round(100 * e.ganadas / e.partidas) + ' %' : '–', 'de victorias')}
+    </div></div>
+    <div class="grupo"><h3>✋ Manos</h3><div class="tiles">
+      ${tile(e.manos, 'jugadas')}${tile(e.cierres, 'cerradas por ti')}${tile(e.menos10, 'con −10')}
+      ${tile(e.chinchones, 'chinchones 🎉')}${tile(media(e.puntos, e.pillada), 'puntos que te comes cuando cierra otra')}${tile(media(e.figurasPilladas, e.pillada), 'figuras sueltas cuando te pillan')}
+    </div></div>
+    <div class="grupo"><h3>💰 Dinero de mentira</h3><div class="tiles">
+      ${tile(e.rayas, 'rayas apuntadas')}${tile(euros(e.euros), e.euros >= 0 ? 'ganados' : 'perdidos', e.euros >= 0 ? 'bien' : 'mal')}${tile(euros(saldo), 'en el monedero')}
+    </div></div>
+    <div class="grupo"><h3>💡 Tus consejos</h3><ul class="consejos">${consejosPersonales().map(x => `<li>${x}</li>`).join('')}</ul>
+      ${e.desde ? `<div class="nota">Desde el ${e.desde.split('-').reverse().join('/')}</div>` : ''}</div>`;
+}
+$('bEstad').onclick = () => ir('estad');
+$('bBorrarEstad').onclick = () => ventana('<h2>¿Empezar de cero?</h2><div class="sub">Se borran las estadísticas (el monedero no).</div>',
+  [{ t: 'Sí, borrar', f: () => { EST = Object.assign({}, EST0); LS.set('mc-estad', EST); pintarEstad(); } }, { t: 'No', clase: 'no' }]);
+
 /* ================= PARTIDA ================= */
 let sel = null, orden = 0, nueva = null, token = 0, pistaId = null;
 const ESPERA = () => [1700, 1000, 450][S.velocidad];
@@ -1349,6 +1430,7 @@ function miTurno() { return G && !G.anim && !G.terminada && G.turno === YO && G.
 $('mMazo').onclick = () => { if (miTurno() && G.fase === 'robar') cogerYo(false); };
 $('mDesc').onclick = () => { if (miTurno() && G.fase === 'robar' && G.descarte.length) cogerYo(true); };
 function cogerYo(deDesc) {
+  if (deDesc) { EST.cogidasMonton++; guardarEst(); }
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(YO, deDesc);
   if (c) volar(origen, $('mano'), htmlCarta(c), Math.min(VUELO(), 600));
@@ -1443,6 +1525,7 @@ function tirarYo(id) {
   if (!miTurno() || G.fase !== 'tirar') return;
   if (id === G.cogida) { pintar(); return aviso('No puedes tirar la carta que acabas de coger del montón'); }
   const c = G.jugadores[YO].mano.find(x => x.id === id); if (!c) return;
+  anotarTirada(G.jugadores[YO].mano, id);
   tirar(YO, id); G.ultimoTira = YO; sel = null; nueva = null; pistaId = null; volteada = null;
   G.jugadores[YO].ultimo = '';
   mensaje(`Has tirado ${nombreCarta(c)}`);
@@ -1554,6 +1637,7 @@ function pintar(flash) {
 /* ---------- Fin de mano ---------- */
 function finMano(res, habla, pausa) {
   token++;
+  anotarMano(res);
   if (!G.jugadores[res.cierra].humano) vibrar('cierre');
   G.fase = 'resultado'; G.res = res;
   pintar(); guardar();
@@ -1579,7 +1663,7 @@ function mostrarResultado(res) {
 }
 function trasResultado(res) {
   const yo = G.jugadores[YO], f = res.filas.find(x => x.i === YO);
-  if (f && f.raya) { CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; guardarCartera(); }
+  if (f && f.raya) { CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; guardarCartera(); EST.rayas++; guardarEst(); }
   G.fase = 'robar';
   if (G.terminada) return finPartida();
   if (yo.fuera && activos().length > 1) { simularHastaFinal(); return finPartida(); }
@@ -1597,6 +1681,7 @@ function finPartida(titulo) {
   guardarCartera();
   const yo = G.jugadores[YO];
   const neto = (gano ? G.bote : 0) - yo.rayas * S.raya;
+  EST.partidas++; if (gano) EST.ganadas++; EST.euros = Math.round((EST.euros + neto) * 100) / 100; guardarEst();
   let h = `<div class="premio">${gano ? '🏆' : '🃏'}</div><h2>${titulo ? titulo + '<br>' : ''}${gano ? '¡Has ganado la partida!' : g ? `Gana ${g.nombre}` : 'Fin de la partida'}</h2>`;
   h += `<div class="sub">${gano ? `Te llevas todas las rayas: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva las rayas:' : 'Rayas:'} ${euros(G.bote)}`}</div>`;
   h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;

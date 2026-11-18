@@ -12,6 +12,7 @@ El **chinchón** (o chinchorro) de toda la vida, con baraja española, para juga
 - Todo con el dedo: **arrastra** una carta al montón para tirarla, **toca dos veces** para ponerla boca abajo y llévala al montón para **cerrar**, y colócalas en la mano a tu gusto
 - Se adapta al tamaño de la pantalla (móvil pequeño, grande o tablet)
 - Reglas de la casa ajustables: con cuánto se cierra, límite de puntos, reenganches, colgar cartas, valor de figuras y comodín…
+- **Mis estadísticas**: partidas, manos cerradas, −10, puntos que te comes, rayas, dinero… y consejos personalizados según cómo juegas
 - La partida se guarda sola y funciona **sin internet** una vez instalada
 
 ## Instalar en el móvil
