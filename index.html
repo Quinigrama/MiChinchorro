@@ -236,7 +236,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, colgar: true, chinchonGana: true,
-  ayudas: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
+  ayudas: true, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
 };
 let S = Object.assign({}, DEF);
 let rnd = Math.random;
@@ -892,6 +892,7 @@ const OPC = [
   { k: 'niveles', t: 'O cada una a su nivel', porRival: true },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
+  { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'nombre', t: 'Tu nombre', txt: true },
   { k: 'nombres', t: 'Nombres de los rivales (separados por comas)', txt: true },
@@ -1107,6 +1108,11 @@ function reacciones(res) {
   cola.slice(0, 2).forEach((fn, k) => setTimeout(() => { tUltBocadillo = 0; fn(); }, 1300 + k * 3000));
 }
 
+/* ---------- Vibración ---------- */
+// No se puede elegir la fuerza, solo la duración: suave = toque corto; cierre = doble toque algo más largo
+const VIBRA = { turno: 35, cierre: [110, 70, 110] };
+function vibrar(tipo) { if (PREF.vibrar === false || !navigator.vibrate) return; try { navigator.vibrate(VIBRA[tipo]); } catch (e) {} }
+
 /* ================= PARTIDA ================= */
 let sel = null, orden = 0, nueva = null, token = 0, pistaId = null;
 const ESPERA = () => [1700, 1000, 450][S.velocidad];
@@ -1165,7 +1171,7 @@ function avanzar() {
   const t = ++token;
   pintar(); guardar();
   if (G.jugadores[G.turno].humano) {
-    if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {} }
+    if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); vibrar('turno'); }
     else mensaje('Arrastra al montón la carta que tiras', true);
     setTimeout(() => { if (t === token && miTurno()) alguna('prisa', {}, true); }, 30000);
     return;
@@ -1420,6 +1426,7 @@ function pintar(flash) {
 /* ---------- Fin de mano ---------- */
 function finMano(res, habla) {
   token++;
+  if (!G.jugadores[res.cierra].humano) vibrar('cierre');
   G.fase = 'resultado'; G.res = res;
   pintar(); guardar();
   setTimeout(() => mostrarResultado(res), habla ? 2300 : 500);
