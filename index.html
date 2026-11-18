@@ -70,6 +70,10 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .avatar.peq{width:28px;height:28px;margin-right:6px}
 .rival.turno .avatar{box-shadow:0 0 0 3px var(--oro);animation:late 1.2s infinite}
 .conava{display:flex;align-items:center}
+.porrival .fr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
+.seg.chico{flex-wrap:nowrap}.seg.chico button{min-width:46px;padding:9px 6px;font-size:19px}
+.avnv{position:relative;flex:0 0 auto;display:inline-block}
+.avnv .nv{position:absolute;right:-5px;bottom:-4px;font-size:12px;line-height:1;background:#123d25;border-radius:50%;padding:2px}
 .vuelo{position:fixed;z-index:40;pointer-events:none;will-change:transform;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
 .vuelo .carta{width:100%}
 .rival .nom{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -232,7 +236,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, colgar: true, chinchonGana: true,
-  ayudas: true, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
+  ayudas: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
 };
 let S = Object.assign({}, DEF);
 let rnd = Math.random;
@@ -554,7 +558,7 @@ function mejorCierre(mano8, prohibida) {
    Solo usa información que una jugadora atenta conoce: su mano, el montón,
    las cartas que cada rival ha cogido del montón (y no ha soltado) y, tras
    rebarajar, qué cartas forman el mazo nuevo. Nunca mira cartas ocultas. */
-const TX = { pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1 };
+const TX = { pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1 };
 function poolMazo(i) {
   // cartas que pueden salir del mazo
   const fuera = new Set(G.jugadores[i].mano.map(c => c.id));
@@ -678,7 +682,8 @@ function rollout(g, i, accion) {
   G = g; S.limite = 1e9;
   let res = null;
   try {
-    accion();
+    res = accion() || null;
+    if (res && !res.filas) res = null;
     let t = 0;
     const lim = TX.prof || 60;
     while (!res && t++ < lim) {
@@ -694,8 +699,10 @@ function rollout(g, i, accion) {
     // hoja: cómo de buena queda mi mano (puntos sueltos menos esperanzas)
     const Gr = G; G = g;
     const v = g.jugadores[i].mano.length === 8 ? mejorTirada(i, g.jugadores[i].mano, 2, null).v : evaluar(g.jugadores[i].mano, 2).v;
+    let otros = 0, n = 0;
+    g.jugadores.forEach((p, k) => { if (k !== i && !p.fuera) { const m = p.mano.length === 8 ? mejorTirada(k, p.mano, 1, null).a : analizar(p.mano); otros += (m ? m.muertos : 0); n++; } });
     G = Gr;
-    return v * TX.hoja;
+    return v * TX.hoja - (TX.relativa && n ? otros / n : 0);
   }
   if (res.chinchon && res.chinchon.limpio) return res.cierra === i ? -60 : 30;
   let mio = 0, otros = 0, n = 0;
@@ -732,7 +739,7 @@ function tiradaMC(i, mano8, prohibida) {
   lista.sort((a, b) => a.v - b.v);
   const cand = lista.slice(0, TX.cand);
   if (cand.length <= 1) return cand[0];
-  const vals = evaluarOpciones(i, cand.map(x => () => tirar(i, x.c.id)));
+  const vals = evaluarOpciones(i, cand.map(x => () => { tirar(i, x.c.id); }));
   let mejor = 0; vals.forEach((v, k) => { if (v < vals[mejor]) mejor = k; });
   return cand[mejor];
 }
@@ -778,6 +785,17 @@ function iaRobo(i) {
 function iaTirada(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel), proh = G.cogida;
   const ci = mejorCierre(p.mano, proh);
+  if (ci && nivel === 3 && TX.mc && TX.decideCierre && ci.a.muertos > 0) {
+    const ch = esChinchon(p.mano.filter(x => x !== ci.c));
+    if (!(ch && ch.limpio)) {
+      const sigo = tiradaMC(i, p.mano, proh) || mejorTirada(i, p.mano, 2, proh);
+      if (sigo && sigo.c.id !== ci.c.id || sigo) {
+        const [vCerrar, vSeguir] = evaluarOpciones(i, [() => cerrar(i, ci.c.id), () => { tirar(i, sigo.c.id); }]);
+        if (vSeguir + TX.margenEspera < vCerrar) return { carta: sigo.c, cierra: false };
+      }
+    }
+    return { carta: ci.c, cierra: true };
+  }
   if (ci) {
     const ok = nivel > 0 || ci.a.muertos <= 1 || rnd() < 0.5;
     if (ok) return { carta: ci.c, cierra: true };
@@ -870,7 +888,8 @@ const OPC = [
   { k: 'jugadores', t: 'Número de jugadores', op: [[2, '2'], [3, '3'], [4, '4'], [5, '5']] },
   { k: 'baraja', t: 'Baraja', op: [[40, '40 cartas'], [48, '48 cartas (con 8 y 9)']] },
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
-  { k: 'nivel', t: 'Dificultad de los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
+  { k: 'nivel', t: 'Dificultad de todas las rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
+  { k: 'niveles', t: 'O cada una a su nivel', porRival: true },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
@@ -894,6 +913,17 @@ function pintarAjustes() {
   for (const o of OPC) {
     if (o.h) { if (abierto) h += '</div>'; h += `<div class="grupo"><h3>${o.h}</h3>`; abierto = true; continue; }
     h += `<div class="opc"><div class="tit">${o.t}</div>`;
+    if (o.porRival) {
+      const noms = PREF.nombres.split(',').map(x => x.trim()).filter(Boolean);
+      const nv = PREF.niveles || [];
+      h += '<div class="porrival">';
+      for (let k = 0; k < PREF.jugadores - 1; k++) {
+        const actual = nv[k] ?? PREF.nivel;
+        h += `<div class="fr"><span class="conava">${avatarSVGmini(k + 1)}${noms[k] || 'Rival ' + (k + 1)}</span><div class="seg chico">${[[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']].map(([v, l]) => `<button data-rival="${k}" data-v="${v}" aria-pressed="${actual === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div></div>`;
+      }
+      h += '<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta</div></div></div>';
+      continue;
+    }
     if (o.vis) {
       const muestra = [{ s: 0, r: 1 }, { s: 1, r: 12 }, { s: 2, r: 7 }];
       const opcion = (v, l) => { const g = PREF.naipes; PREF.naipes = v; const cs = muestra.map(c => htmlCarta(c)).join(''); PREF.naipes = g;
@@ -907,7 +937,11 @@ function pintarAjustes() {
     h += '</div>';
   }
   $('opciones').innerHTML = h + '</div>';
-  $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => { PREF[b.dataset.k] = JSON.parse(b.dataset.v); LS.set('mc-ajustes2', PREF); pintarAjustes(); });
+  $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.rival !== undefined) { const nv = (PREF.niveles || []).slice(); for (let k = 0; k < 4; k++) if (nv[k] == null) nv[k] = PREF.nivel; nv[+b.dataset.rival] = +b.dataset.v; PREF.niveles = nv; }
+    else { PREF[b.dataset.k] = JSON.parse(b.dataset.v); if (b.dataset.k === 'nivel') PREF.niveles = null; }
+    LS.set('mc-ajustes2', PREF); pintarAjustes();
+  });
   $('opciones').querySelectorAll('input').forEach(i => i.oninput = () => { PREF[i.dataset.k] = i.value; LS.set('mc-ajustes2', PREF); });
 }
 $('bReset').onclick = () => { PREF = Object.assign({}, DEF); LS.set('mc-ajustes2', PREF); pintarAjustes(); aviso('Ajustes de siempre puestos'); };
@@ -972,6 +1006,8 @@ function avatarSVG(k) {
     <path d="M43 59Q50 65 57 59" stroke="#b03a3a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
     ${gafas}</svg>`;
 }
+const NIVELES = ['Fácil', 'Normal', 'Difícil', 'Experta'], ICONIV = ['🟢', '🟡', '🔴', '🧠'];
+const avatarSVGmini = k => `<span class="avatar peq">${avatarSVG(k)}</span>`;
 const ava = (p, cls = '') => `<span class="avatar ${cls}">${avatarSVG(p.avatar ?? G.jugadores.indexOf(p))}</span>`;
 
 /* ---------- Cartas que vuelan por la mesa ---------- */
@@ -1094,7 +1130,7 @@ function empezarPartida() {
   Object.assign(S, PREF);
   if (S.baraja === 40 && S.jugadores === 5) S.baraja = 48;
   nuevaPartida(S.nombre || 'Tú');
-  G.jugadores.forEach((p, i) => p.avatar = i);
+  G.jugadores.forEach((p, i) => { p.avatar = i; if (i) p.nivel = (PREF.niveles && PREF.niveles[i - 1] != null) ? PREF.niveles[i - 1] : S.nivel; });
   CART.jugadas++; guardarCartera();
   ir('juego');
   empezarMano();
@@ -1340,7 +1376,7 @@ function pintar(flash) {
   // rivales
   $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
     <div class="rival ${G.turno === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}" data-i="${i}">
-      <div class="rcab">${ava(p)}<div class="rtxt"><div class="nom">${p.nombre}</div>
+      <div class="rcab"><span class="avnv">${ava(p)}<span class="nv" title="${NIVELES[p.nivel ?? S.nivel]}">${ICONIV[p.nivel ?? S.nivel]}</span></span><div class="rtxt"><div class="nom">${p.nombre}</div>
       <div class="pts">${p.fuera ? '❌ Fuera' : p.puntos + ' pts'}${rayitas(p)}</div></div></div>
       <div class="barrita"><i style="width:${Math.max(0, Math.min(100, p.puntos / S.limite * 100))}%"></i></div>
       <div class="dorsos">${p.fuera ? '' : '<i></i>'.repeat(p.mano.length - (G.manoOculta === i ? 1 : 0))}</div>
