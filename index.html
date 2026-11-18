@@ -74,6 +74,10 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .seg.chico{flex-wrap:nowrap}.seg.chico button{min-width:46px;padding:9px 6px;font-size:19px}
 .avnv{position:relative;flex:0 0 auto;display:inline-block}
 .avnv .nv{position:absolute;right:-5px;bottom:-4px;font-size:12px;line-height:1;background:#123d25;border-radius:50%;padding:2px}
+.pila{position:fixed;z-index:40;pointer-events:none}
+.pila .carta{position:absolute;inset:0;width:100%}
+.pila.encima{z-index:43}
+.mano .carta.llega:last-child{animation:voltear .35s}
 .vuelo{position:fixed;z-index:40;pointer-events:none;will-change:transform;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
 .vuelo .carta{width:100%}
 .rival .nom{font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -236,7 +240,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, colgar: true, chinchonGana: true,
-  ayudas: true, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
+  ayudas: true, reparto: 2, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
 };
 let S = Object.assign({}, DEF);
 let rnd = Math.random;
@@ -892,6 +896,7 @@ const OPC = [
   { k: 'niveles', t: 'O cada una a su nivel', porRival: true },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
+  { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
   { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'nombre', t: 'Tu nombre', txt: true },
@@ -1146,7 +1151,7 @@ function continuar() {
   const d = LS.get('mc-partida2', null);
   if (!d) return;
   Object.keys(S).forEach(k => delete S[k]); Object.assign(S, d.S);
-  G = d.G;
+  G = d.G; G.anim = null;
   ir('juego');
   if (G.fase === 'resultado' && G.res) { pintar(); mostrarResultado(G.res); return; }
   pintar(); avanzar();
@@ -1157,12 +1162,116 @@ $('bSalir').onclick = () => ventana('<h2>¿Salir?</h2><div class="sub">La partid
 function empezarMano() {
   repartir(); G.jugadores[YO].orden = null; orden = 1; sel = null; nueva = null; pistaId = null;
   G.res = null;
-  pintar(); guardar();
+  G.anim = null; guardar();
   const r = G.jugadores[G.reparte];
-  mensaje(`${r.humano ? 'Repartes tú' : 'Reparte ' + r.nombre}. ¡Mano ${G.manoN}!`);
   const t = ++token;
+  const animar = PREF.reparto === 2 || (PREF.reparto === 1 && G.manoN === 1);
+  if (animar && !document.hidden) return repartoAnimado(t);
+  pintar();
+  mensaje(`${r.humano ? 'Repartes tú' : 'Reparte ' + r.nombre}. ¡Mano ${G.manoN}!`);
   setTimeout(() => { if (t === token) avanzar(); }, 1100);
 }
+
+/* ---------- Reparto como en la mesa: barajar, cortar y repartir de una en una ---------- */
+let saltarReparto = false, finCorte = null;
+function anteriorActivo(i) { const n = G.jugadores.length; for (let k = 1; k <= n; k++) { const x = (i - k + n) % n; if (!G.jugadores[x].fuera) return x; } return i; }
+const RITMO = () => [1.35, 1, 0.6][S.velocidad];
+function montoncito(n, rect, extra = '') {
+  // pila de dorsos que se dibuja encima del mazo para las animaciones
+  const caja = document.createElement('div');
+  caja.className = 'pila ' + extra;
+  Object.assign(caja.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px' });
+  for (let k = 0; k < n; k++) { const d = document.createElement('div'); d.className = 'carta dorso'; d.style.transform = `translate(${-k * 0.7}px,${-k * 0.9}px)`; caja.appendChild(d); }
+  document.body.appendChild(caja);
+  return caja;
+}
+async function animarBarajar(rect) {
+  const izq = montoncito(5, rect), der = montoncito(5, rect);
+  const ms = 260 * RITMO();
+  for (let vuelta = 0; vuelta < 3 && !saltarReparto; vuelta++) {
+    const sep = rect.width * 0.62;
+    await Promise.all([
+      izq.animate([{ transform: 'none' }, { transform: `translateX(${-sep}px) rotate(-10deg)` }], { duration: ms, fill: 'forwards', easing: 'ease-out' }).finished,
+      der.animate([{ transform: 'none' }, { transform: `translateX(${sep}px) rotate(10deg)` }], { duration: ms, fill: 'forwards', easing: 'ease-out' }).finished
+    ]);
+    // las cartas caen intercaladas, una de cada lado
+    const cartas = [];
+    for (let k = 4; k >= 0; k--) { cartas.push([izq.children[k], -sep]); cartas.push([der.children[k], sep]); }
+    await Promise.all(cartas.map(([c, x], k) => c.animate([{ transform: c.style.transform }, { transform: `translate(${-x}px,-6px) rotate(${x > 0 ? -10 : 10}deg)` }], { duration: ms * 0.55, delay: k * ms * 0.09, fill: 'forwards', easing: 'ease-in' }).finished));
+    izq.getAnimations().forEach(a => a.cancel()); der.getAnimations().forEach(a => a.cancel());
+    [...izq.children, ...der.children].forEach(c => c.getAnimations().forEach(a => a.cancel()));
+    await espera(ms * 0.3);
+  }
+  izq.remove(); der.remove();
+}
+async function animarCorte(rect) {
+  const abajo = montoncito(4, rect), arriba = montoncito(4, rect, 'encima');
+  const ms = 320 * RITMO();
+  await arriba.animate([{ transform: 'none' }, { transform: `translate(${rect.width * 0.85}px,-14px) rotate(6deg)` }], { duration: ms, fill: 'forwards', easing: 'ease-out' }).finished;
+  arriba.style.zIndex = 41; abajo.style.zIndex = 42;
+  await Promise.all([
+    abajo.animate([{ transform: 'none' }, { transform: `translate(${rect.width * 0.85}px,-${rect.height * 0.12}px)` }], { duration: ms, fill: 'forwards', easing: 'ease-in-out' }).finished,
+    arriba.animate([{ transform: `translate(${rect.width * 0.85}px,-14px) rotate(6deg)` }, { transform: `translate(${rect.width * 0.85}px,0) rotate(0)` }], { duration: ms, fill: 'forwards' }).finished
+  ]);
+  await Promise.all([abajo, arriba].map(p => p.animate([{ transform: getComputedStyle(p).transform }, { transform: 'none' }], { duration: ms, fill: 'forwards', easing: 'ease-in-out' }).finished));
+  abajo.remove(); arriba.remove();
+}
+function esperarCorteYo(t) {
+  return new Promise(res => {
+    const m = $('mMazo'); m.classList.add('activo');
+    mensaje('Te toca cortar ✂️ Toca el mazo', true); vibrar('turno');
+    const fin = () => { finCorte = null; m.classList.remove('activo'); m.removeEventListener('click', fin); clearTimeout(tt); res(); };
+    finCorte = fin;
+    m.addEventListener('click', fin);
+    const tt = setTimeout(fin, 8000);
+  });
+}
+async function repartoAnimado(t) {
+  saltarReparto = false;
+  const act = activos(), total = act.length * 7;
+  G.anim = { vis: {}, monton: false, pend: total + 1 };
+  pintar();
+  const r = G.jugadores[G.reparte], cortadora = anteriorActivo(G.reparte);
+  const vivo = () => t === token;
+  const rect = cartaMazo().getBoundingClientRect();
+  try {
+    mensaje(`${r.humano ? 'Barajas tú' : 'Baraja ' + r.nombre} 🔀 · Mano ${G.manoN}`);
+    await animarBarajar(rect); if (!vivo()) return;
+    if (!saltarReparto) {
+      if (G.jugadores[cortadora].humano) { await esperarCorteYo(t); if (!vivo()) return; }
+      else mensaje(`Corta ${G.jugadores[cortadora].nombre} ✂️`);
+      await animarCorte(rect); if (!vivo()) return;
+    }
+    mensaje(`${r.humano ? 'Repartes tú' : 'Reparte ' + r.nombre}… (toca para saltar)`);
+    // de una en una, empezando por la siguiente a la que reparte
+    const orden = []; let k = siguienteActivo(G.reparte);
+    for (let n = 0; n < act.length; n++) { orden.push(k); k = siguienteActivo(k); }
+    const ms = 300 * RITMO();
+    for (let vuelta = 0; vuelta < 7 && !saltarReparto; vuelta++) {
+      for (const i of orden) {
+        if (saltarReparto || !vivo()) break;
+        const destino = i === YO ? $('mano') : avatarDe(i);
+        const v = volar(cartaMazo(), destino, dorsoHTML, ms);
+        await espera(ms * 0.55);
+        v.then(() => { if (!G.anim) return; G.anim.vis[i] = (G.anim.vis[i] || 0) + 1; G.anim.pend--; pintar(); });
+      }
+      if (!vivo()) return;
+    }
+    await espera(ms * 0.6); if (!vivo()) return;
+    // se destapa la primera carta del montón
+    if (!saltarReparto) {
+      await volar(cartaMazo(), cartaMonton(), dorsoHTML, ms * 1.2); if (!vivo()) return;
+    }
+  } finally {
+    if (vivo()) {
+      G.anim = null;
+      pintar(true);
+      mensaje(`${r.humano ? 'Has repartido tú' : 'Ha repartido ' + r.nombre}. ¡A jugar!`);
+      setTimeout(() => { if (vivo()) avanzar(); }, 700);
+    }
+  }
+}
+document.addEventListener('pointerdown', e => { if (G && G.anim && !e.target.closest('#mMazo') && !e.target.closest('.volver')) { saltarReparto = true; if (finCorte) finCorte(); } });
 
 function mensaje(t, tuyo) { const m = $('mensaje'); m.textContent = t; m.classList.toggle('tuyo', !!tuyo); if (G) ajustarTamano(G.jugadores[YO].mano.length); }
 
@@ -1218,7 +1327,7 @@ function manoNula() {
 }
 
 /* ---------- Acciones del jugador ---------- */
-function miTurno() { return G && !G.terminada && G.turno === YO && G.jugadores[YO].humano; }
+function miTurno() { return G && !G.anim && !G.terminada && G.turno === YO && G.jugadores[YO].humano; }
 $('mMazo').onclick = () => { if (miTurno() && G.fase === 'robar') cogerYo(false); };
 $('mDesc').onclick = () => { if (miTurno() && G.fase === 'robar' && G.descarte.length) cogerYo(true); };
 function cogerYo(deDesc) {
@@ -1381,16 +1490,16 @@ function pintar(flash) {
   $('bote').textContent = '💰 ' + euros(G.bote);
   // rivales
   $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
-    <div class="rival ${G.turno === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}" data-i="${i}">
+    <div class="rival ${(G.anim ? G.reparte : G.turno) === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}" data-i="${i}">
       <div class="rcab"><span class="avnv">${ava(p)}<span class="nv" title="${NIVELES[p.nivel ?? S.nivel]}">${ICONIV[p.nivel ?? S.nivel]}</span></span><div class="rtxt"><div class="nom">${p.nombre}</div>
       <div class="pts">${p.fuera ? '❌ Fuera' : p.puntos + ' pts'}${rayitas(p)}</div></div></div>
       <div class="barrita"><i style="width:${Math.max(0, Math.min(100, p.puntos / S.limite * 100))}%"></i></div>
-      <div class="dorsos">${p.fuera ? '' : '<i></i>'.repeat(p.mano.length - (G.manoOculta === i ? 1 : 0))}</div>
+      <div class="dorsos">${p.fuera ? '' : '<i></i>'.repeat(G.anim ? (G.anim.vis[i] || 0) : p.mano.length - (G.manoOculta === i ? 1 : 0))}</div>
       <div class="ult">${p.ultimo || ''}</div>
     </div>`).join('');
   // mazo y montón
-  $('nMazo').textContent = `Mazo (${G.mazo.length})`;
-  const top = G.descarte[G.descarte.length - 1];
+  $('nMazo').textContent = `Mazo (${G.mazo.length + (G.anim ? G.anim.pend : 0)})`;
+  const top = G.anim && !G.anim.monton ? null : G.descarte[G.descarte.length - 1];
   $('mDesc').innerHTML = (top ? htmlCarta(top, flash ? 'flash' : '') : '<div class="vacio"></div>') + '<span>Montón</span>';
   const robo = miTurno() && G.fase === 'robar';
   $('mMazo').classList.toggle('activo', robo);
@@ -1398,12 +1507,13 @@ function pintar(flash) {
   // mi mano
   $('yoNom').innerHTML = ava(yo, 'peq') + yo.nombre + rayitas(yo);
   $('yoPts').textContent = yo.puntos + ' pts';
-  const { lista, a } = ordenarMano(yo.mano);
+  const { lista, a } = G.anim ? { lista: yo.mano.slice(0, G.anim.vis[YO] || 0), a: analizar([]) } : ordenarMano(yo.mano);
   const banda = {};
   a.jugadas.forEach((j, k) => j.cartas.forEach(c => banda[c.id] = BANDAS[k % BANDAS.length]));
   const mano = $('mano');
   mano.innerHTML = lista.map(c => {
     const cls = [arr && arr.moviendo && arr.id === c.id ? 'hueco' : '', sel === c.id && !(arr && arr.moviendo) ? 'sel' : '', nueva === c.id ? 'nueva' : '', pistaId === c.id ? 'pista' : ''].join(' ');
+    if (G.anim) return htmlCarta(c, 'llega');
     if (volteada === c.id) return `<div class="carta dorso volteada ${cls}" data-id="${c.id}"></div>`;
     return htmlCarta(c, cls).replace(/<\/div>$/, banda[c.id] ? `<i class="banda" style="background:${banda[c.id]}"></i></div>` : '</div>');
   }).join('');
@@ -1415,7 +1525,7 @@ function pintar(flash) {
     if (sel !== null && sel !== G.cogida) cierraSel = puedeCerrarCon(analizar(yo.mano.filter(x => x.id !== sel)));
   }
   const si = $('sueltas');
-  si.classList.toggle('oculto', !S.ayudas);
+  si.classList.toggle('oculto', !S.ayudas || !!G.anim);
   if (tirando && puedeCerrar) { si.textContent = '✅ Cierra'; si.classList.add('cierra'); }
   else { si.textContent = `Sueltas: ${a.muertos}`; si.classList.remove('cierra'); }
   if (tirando && S.ayudas && puedeCerrar) mensaje(volteada !== null ? 'Arrastra la carta boca abajo al montón para cerrar' : '¡Puedes cerrar! Toca dos veces la carta y llévala boca abajo al montón', true);
