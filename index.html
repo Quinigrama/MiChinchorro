@@ -720,8 +720,8 @@ function ventana(html, botones) {
 /* ---------- Avatares de las jugadoras (dibujados aquí, sin imágenes) ---------- */
 const AVATARES = [
   // pelo, color de pelo, fondo, blusa, gafas, extra
-  { pelo: 'rizos', cp: '#e9e6e1', sombra: '#bdb7ae', fondo: '#f6c86a', blusa: '#c2416b', gafas: 'redondas', pend: '#fff' },
-  { pelo: 'mono', cp: '#d4d2cf', sombra: '#a9a5a0', fondo: '#8ecbf0', blusa: '#3b7d4f', gafas: null, pend: '#f1b800' },
+  { pelo: 'flequillo', cp: '#a88a6c', sombra: '#7a6048', mechas: '#d2bb98', fondo: '#9fd0ec', blusa: '#d8323a', cuello: 'v', gafas: 'rect', pend: null },
+  { pelo: 'mono', cp: '#d4d2cf', sombra: '#a9a5a0', fondo: '#f6c86a', blusa: '#3b7d4f', gafas: null, pend: '#f1b800' },
   { pelo: 'corto', cp: '#b0482b', sombra: '#7d2e18', fondo: '#f3a2b6', blusa: '#4b4fa8', gafas: 'gata', pend: null },
   { pelo: 'melena', cp: '#5a3b26', sombra: '#3a2416', fondo: '#a9dc93', blusa: '#d9792b', gafas: 'grandes', pend: '#e5533d', mecha: '#d9d4cc' },
   { pelo: 'rizos', cp: '#e8c35a', sombra: '#b8922f', fondo: '#c7b4f0', blusa: '#1f6fd1', gafas: null, pend: '#fff' }
@@ -732,6 +732,11 @@ function avatarSVG(k) {
   if (a.pelo === 'rizos') {
     atras = [[30, 40], [70, 40], [26, 52], [74, 52]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="11" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`).join('');
     delante = [[34, 27], [44, 22], [56, 22], [66, 27], [50, 20]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`).join('');
+  } else if (a.pelo === 'flequillo') {
+    // corto, con volumen arriba y flequillo peinado de lado
+    atras = `<path d="M27 56Q22 30 36 21Q50 12 66 18Q78 24 75 50Q74 56 72 58Q72 42 66 36Q50 31 34 37Q29 44 30 58Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`;
+    delante = `<path d="M29 44Q28 26 44 21Q60 16 70 26Q74 32 72 40Q66 30 56 30Q50 36 38 37Q32 39 29 44Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.2"/>`
+      + `<path d="M38 26Q50 20 64 25" stroke="${a.mechas}" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M34 34Q44 28 54 30" stroke="${a.mechas}" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".8"/>`;
   } else if (a.pelo === 'mono') {
     atras = `<circle cx="50" cy="15" r="11" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/><path d="M27 50Q25 22 50 21Q75 22 73 50Q70 34 50 32Q30 34 27 50Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`;
     delante = `<path d="M30 38Q36 26 50 27Q64 26 70 38Q60 31 50 33Q40 31 30 38Z" fill="${a.cp}"/>`;
@@ -743,11 +748,12 @@ function avatarSVG(k) {
     delante = `<path d="M30 40Q34 24 52 23Q68 25 70 40Q62 30 50 31Q40 32 30 40Z" fill="${a.cp}"/>` + (a.mecha ? `<path d="M44 24Q38 30 34 38" stroke="${a.mecha}" stroke-width="4" fill="none" stroke-linecap="round"/>` : '');
   }
   let gafas = '';
+  if (a.gafas === 'rect') gafas = `<g fill="rgba(255,255,255,.18)" stroke="#8d8a86" stroke-width="1.8"><rect x="32" y="44" width="15" height="10" rx="2.5"/><rect x="53" y="44" width="15" height="10" rx="2.5"/></g><path d="M47 48Q50 46 53 48" stroke="#8d8a86" stroke-width="1.6" fill="none"/><path d="M32 47H29M68 47H71" stroke="#8d8a86" stroke-width="1.6"/>`;
   if (a.gafas === 'redondas') gafas = `<g fill="rgba(255,255,255,.25)" stroke="#5b3a29" stroke-width="2"><circle cx="41" cy="49" r="7"/><circle cx="59" cy="49" r="7"/></g><path d="M48 49H52" stroke="#5b3a29" stroke-width="2"/>`;
   if (a.gafas === 'gata') gafas = `<g fill="rgba(255,255,255,.2)" stroke="#7a1f3d" stroke-width="2.4"><path d="M33 45L48 46L47 53Q40 56 35 52Z"/><path d="M67 45L52 46L53 53Q60 56 65 52Z"/></g>`;
   if (a.gafas === 'grandes') gafas = `<g fill="rgba(255,255,255,.25)" stroke="#222" stroke-width="2.4"><rect x="32" y="43" width="15" height="12" rx="4"/><rect x="53" y="43" width="15" height="12" rx="4"/></g><path d="M47 48H53" stroke="#222" stroke-width="2.2"/>`;
   return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${a.fondo}"/>
-    ${atras}<path d="M18 100Q20 74 50 72Q80 74 82 100Z" fill="${a.blusa}"/><path d="M42 72L50 82L58 72" fill="#fff" opacity=".85"/>
+    ${atras}<path d="M18 100Q20 74 50 72Q80 74 82 100Z" fill="${a.blusa}"/>${a.cuello === 'v' ? `<path d="M38 74L50 90L62 74" fill="${piel2}" stroke="#fff" stroke-width="3"/><path d="M22 92Q26 84 32 80M78 92Q74 84 68 80" stroke="#fff" stroke-width="1.6" stroke-dasharray="3 3" fill="none"/>` : '<path d="M42 72L50 82L58 72" fill="#fff" opacity=".85"/>'}
     <rect x="44" y="60" width="12" height="14" rx="5" fill="${piel2}"/>
     <ellipse cx="50" cy="48" rx="20" ry="22" fill="${piel}"/>
     ${a.pend ? `<circle cx="30" cy="56" r="3" fill="${a.pend}" stroke="#0003"/><circle cx="70" cy="56" r="3" fill="${a.pend}" stroke="#0003"/>` : ''}
