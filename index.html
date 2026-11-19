@@ -1061,13 +1061,13 @@ function ventana(html, botones) {
 /* ---------- Avatares de las jugadoras (dibujados aquí, sin imágenes) ---------- */
 const PERSONAJES = {
   'MCarmen': { pelo: 'flequillo', cp: '#a88a6c', sombra: '#7a6048', mechas: '#d2bb98', fondo: '#9fd0ec', blusa: '#d8323a', cuello: 'v', gafas: 'rect', pend: null },
-  'Matilde': { pelo: 'mono', cp: '#d4d2cf', sombra: '#a9a5a0', fondo: '#f6c86a', blusa: '#3b7d4f', gafas: null, pend: '#f1b800' },
-  'Elvira': { pelo: 'corto', cp: '#b0482b', sombra: '#7d2e18', fondo: '#f3a2b6', blusa: '#4b4fa8', gafas: 'gata', pend: null },
+  'Matilde': { pelo: 'cortoGris', cp: '#e4e2de', sombra: '#a9a5a0', fondo: '#8fbfe0', blusa: '#e0ac36', cuello: 'chaqueta', gafas: null, pend: null },
+  'Elvira': { pelo: 'bob', cp: '#b5532e', sombra: '#7d3518', fondo: '#f3a2b6', blusa: '#4f86a8', gafas: null, pend: '#f5e7c0' },
   'Pepita': { pelo: 'melena', cp: '#5a3b26', sombra: '#3a2416', fondo: '#a9dc93', blusa: '#d9792b', gafas: 'grandes', pend: '#e5533d', mecha: '#d9d4cc' },
-  'Pedro': { h: 1, pelo: 'calvo', cp: '#cfcac3', sombra: '#a29d96', fondo: '#f2b66d', blusa: '#2f5d8c', gafas: 'redondas', bigote: '#9e968b', cuello: 'camisa' },
-  'Andrés': { h: 1, pelo: 'canoso', cp: '#dcd8d2', sombra: '#aaa49c', fondo: '#9ad3c4', blusa: '#7a3b52', barba: '#d6d1c9', cuello: 'camisa' },
-  'Manolo': { h: 1, pelo: 'boina', cp: '#8a857e', sombra: '#6b665f', boina: '#2c2c34', fondo: '#e8a0a0', blusa: '#5b6b3a', bigote: '#4a3a2c', cuello: 'jersey' },
-  'Lucas': { h: 1, pelo: 'juvenil', cp: '#6b4423', sombra: '#4a2e16', fondo: '#b9c8f5', blusa: '#e0a526', gafas: 'grandes', cuello: 'camisa' }
+  'Pedro': { h: 1, pelo: 'calvo', cp: '#e9e6e1', sombra: '#b9b4ac', fondo: '#f2b66d', blusa: '#f3f0ea', gafas: 'finas', cuello: 'abierta', cejas: '#cfcac3' },
+  'Andrés': { h: 1, pelo: 'ondulado', cp: '#e6e2dc', sombra: '#b5afa6', piel: '#e8ae8e', piel2: '#d4977a', fondo: '#9ad3c4', blusa: '#f4efe6', cuello: 'abierta', cejas: '#a39b90' },
+  'Manolo': { h: 1, pelo: 'atras', cp: '#2b2420', sombra: '#120e0b', fondo: '#e8a0a0', blusa: '#f2efe8', cuello: 'abierta', cejas: '#2b2420', reloj: true },
+  'Lucas': { h: 1, pelo: 'tupe', cp: '#2a211c', sombra: '#120d0a', fondo: '#b9c8f5', blusa: '#353842', cuello: 'traje', corbata: '#1b1d22', cejas: '#2a211c' }
 };
 const NOMBRES_P = Object.keys(PERSONAJES);
 const ORDEN_DEF = ['MCarmen', 'Matilde', 'Elvira', 'Pepita', 'Lucas'];
@@ -1078,9 +1078,21 @@ function avatarLetra(spec) {
 function avatarSVG(k) {
   if (typeof k === 'string' && k.startsWith('letra:')) return avatarLetra(k);
   const a = (typeof k === 'string' ? PERSONAJES[k] : PERSONAJES[ORDEN_DEF[(k || 0) % ORDEN_DEF.length]]) || PERSONAJES.Lucas;
-  const piel = '#f2cdb0', piel2 = '#e2b392';
+  const piel = a.piel || '#f2cdb0', piel2 = a.piel2 || '#e2b392';
   let atras = '', delante = '';
-  if (a.pelo === 'calvo') {
+  if (a.pelo === 'ondulado') {
+    delante = `<path d="M28 47Q25 24 44 19Q50 15 58 18Q74 22 72 47Q70 34 64 30Q58 34 52 29Q44 34 38 30Q31 35 28 47Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.4"/><path d="M36 24Q42 21 46 25M52 21Q58 19 62 23" stroke="${a.sombra}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+  } else if (a.pelo === 'atras') {
+    // peinado hacia atrás con entradas
+    delante = `<path d="M27 50Q24 22 50 17Q76 22 73 50Q72 40 69 33Q66 27 59 29Q50 25 41 29Q34 27 31 33Q28 40 27 50Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.4"/><path d="M38 24Q50 20 62 24M35 28Q50 23 65 28" stroke="#5a4c42" stroke-width="1.3" fill="none" opacity=".8"/>`;
+  } else if (a.pelo === 'tupe') {
+    delante = `<path d="M28 47Q23 17 50 11Q76 13 72 41Q72 45 72 47Q68 31 58 30Q45 34 35 31Q30 36 28 47Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.4"/><path d="M40 18Q52 12 64 18" stroke="#5a4a40" stroke-width="1.5" fill="none" opacity=".7"/>`;
+  } else if (a.pelo === 'bob') {
+    atras = `<path d="M23 64Q17 26 50 19Q83 26 77 64Q73 67 68 62Q70 42 64 36Q50 30 36 36Q30 42 32 62Q27 67 23 64Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`;
+    delante = `<path d="M29 43Q33 23 53 23Q71 25 71 42Q61 31 47 34Q36 36 29 43Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.2"/><path d="M38 28Q50 23 62 27" stroke="#d27a4e" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  } else if (a.pelo === 'cortoGris') {
+    delante = `<path d="M28 49Q24 24 48 19Q74 20 72 49Q70 36 64 32Q52 27 40 31Q32 35 28 49Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.4"/><path d="M31 32Q34 22 39 26Q42 18 47 23Q51 16 55 22Q60 17 62 25Q67 22 68 31" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.2" stroke-linejoin="round"/>`;
+  } else if (a.pelo === 'calvo') {
     // calva con pelo canoso a los lados
     atras = '';
     delante = `<path d="M30 36Q27 46 31 56" stroke="${a.cp}" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M70 36Q73 46 69 56" stroke="${a.cp}" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M40 31Q48 27 56 30" stroke="#fff" stroke-width="3" fill="none" opacity=".55" stroke-linecap="round"/>`;
@@ -1110,18 +1122,20 @@ function avatarSVG(k) {
     delante = `<path d="M30 40Q34 24 52 23Q68 25 70 40Q62 30 50 31Q40 32 30 40Z" fill="${a.cp}"/>` + (a.mecha ? `<path d="M44 24Q38 30 34 38" stroke="${a.mecha}" stroke-width="4" fill="none" stroke-linecap="round"/>` : '');
   }
   let gafas = '';
+  if (a.gafas === 'finas') gafas = `<g fill="rgba(255,255,255,.15)" stroke="#7d7a75" stroke-width="1.3"><rect x="33" y="44" width="14" height="10" rx="3"/><rect x="53" y="44" width="14" height="10" rx="3"/></g><path d="M47 48Q50 46.5 53 48M33 47H29.5M67 47H70.5" stroke="#7d7a75" stroke-width="1.2" fill="none"/>`;
   if (a.gafas === 'rect') gafas = `<g fill="rgba(255,255,255,.18)" stroke="#8d8a86" stroke-width="1.8"><rect x="32" y="44" width="15" height="10" rx="2.5"/><rect x="53" y="44" width="15" height="10" rx="2.5"/></g><path d="M47 48Q50 46 53 48" stroke="#8d8a86" stroke-width="1.6" fill="none"/><path d="M32 47H29M68 47H71" stroke="#8d8a86" stroke-width="1.6"/>`;
   if (a.gafas === 'redondas') gafas = `<g fill="rgba(255,255,255,.25)" stroke="#5b3a29" stroke-width="2"><circle cx="41" cy="49" r="7"/><circle cx="59" cy="49" r="7"/></g><path d="M48 49H52" stroke="#5b3a29" stroke-width="2"/>`;
   if (a.gafas === 'gata') gafas = `<g fill="rgba(255,255,255,.2)" stroke="#7a1f3d" stroke-width="2.4"><path d="M33 45L48 46L47 53Q40 56 35 52Z"/><path d="M67 45L52 46L53 53Q60 56 65 52Z"/></g>`;
   if (a.gafas === 'grandes') gafas = `<g fill="rgba(255,255,255,.25)" stroke="#222" stroke-width="2.4"><rect x="32" y="43" width="15" height="12" rx="4"/><rect x="53" y="43" width="15" height="12" rx="4"/></g><path d="M47 48H53" stroke="#222" stroke-width="2.2"/>`;
   return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${a.fondo}"/>
-    ${atras}<path d="M18 100Q20 74 50 72Q80 74 82 100Z" fill="${a.blusa}"/>${a.cuello === 'camisa' ? '<path d="M40 73L50 81L45 88Z" fill="#fff"/><path d="M60 73L50 81L55 88Z" fill="#fff"/>' : a.cuello === 'jersey' ? '<path d="M38 74Q50 82 62 74" stroke="#0003" stroke-width="5" fill="none"/>' : a.cuello === 'v' ? `<path d="M38 74L50 90L62 74" fill="${piel2}" stroke="#fff" stroke-width="3"/><path d="M22 92Q26 84 32 80M78 92Q74 84 68 80" stroke="#fff" stroke-width="1.6" stroke-dasharray="3 3" fill="none"/>` : '<path d="M42 72L50 82L58 72" fill="#fff" opacity=".85"/>'}
+    ${atras}<path d="M18 100Q20 74 50 72Q80 74 82 100Z" fill="${a.blusa}"/>${a.cuello === 'abierta' ? `<path d="M38 73L50 87L62 73" fill="${piel2}"/><path d="M37 72L45 85M63 72L55 85" stroke="#d6d0c4" stroke-width="2.2"/>` : a.cuello === 'traje' ? `<path d="M40 72L50 93L60 72Z" fill="#fff"/><path d="M48 77H52L53.5 90L50 95L46.5 90Z" fill="${a.corbata}"/><path d="M40 72L47 95M60 72L53 95" stroke="#1b1d22" stroke-width="2.4"/>` : a.cuello === 'chaqueta' ? `<path d="M42 72L50 84L58 72" fill="#c9952a"/><path d="M38 73L46 94M62 73L54 94" stroke="#b07f1e" stroke-width="3"/>` : a.cuello === 'camisa' ? '<path d="M40 73L50 81L45 88Z" fill="#fff"/><path d="M60 73L50 81L55 88Z" fill="#fff"/>' : a.cuello === 'jersey' ? '<path d="M38 74Q50 82 62 74" stroke="#0003" stroke-width="5" fill="none"/>' : a.cuello === 'v' ? `<path d="M38 74L50 90L62 74" fill="${piel2}" stroke="#fff" stroke-width="3"/><path d="M22 92Q26 84 32 80M78 92Q74 84 68 80" stroke="#fff" stroke-width="1.6" stroke-dasharray="3 3" fill="none"/>` : '<path d="M42 72L50 82L58 72" fill="#fff" opacity=".85"/>'}
     <rect x="44" y="60" width="12" height="14" rx="5" fill="${piel2}"/>
     ${a.h ? `<circle cx="29.5" cy="50" r="4.5" fill="${piel2}"/><circle cx="70.5" cy="50" r="4.5" fill="${piel2}"/>` : ''}
     <ellipse cx="50" cy="48" rx="20" ry="22" fill="${piel}"/>
     ${a.pend ? `<circle cx="30" cy="56" r="3" fill="${a.pend}" stroke="#0003"/><circle cx="70" cy="56" r="3" fill="${a.pend}" stroke="#0003"/>` : ''}
     ${a.barba ? `<path d="M30 50Q30 73 50 75Q70 73 70 50Q66 61 58 62Q50 65 42 62Q34 61 30 50Z" fill="${a.barba}"/>` : ''}
     ${delante}
+    ${a.cejas ? `<path d="M35 42Q40 38.5 46 40.5" stroke="${a.cejas}" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M54 40.5Q60 38.5 65 42" stroke="${a.cejas}" stroke-width="2.6" fill="none" stroke-linecap="round"/>` : ''}
     <path d="M37 48Q41 45 45 48" stroke="#4a2c1d" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M55 48Q59 45 63 48" stroke="#4a2c1d" stroke-width="2.2" fill="none" stroke-linecap="round"/>
     <circle cx="37" cy="56" r="4" fill="#f08a8a" opacity="${a.h ? '.25' : '.45'}"/><circle cx="63" cy="56" r="4" fill="#f08a8a" opacity="${a.h ? '.25' : '.45'}"/>
     <path d="M43 60Q50 65 57 60" stroke="${a.h ? '#7a3a2a' : '#b03a3a'}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
