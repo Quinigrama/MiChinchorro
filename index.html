@@ -170,6 +170,15 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .tile span{font-size:14px;opacity:.85;line-height:1.2}
 .tile.bien b{color:#7bd389}.tile.mal b{color:#ffb4a6}
 .consejos li{margin-bottom:10px;font-size:18px}
+.avatares{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.avbtn{width:58px;height:58px;padding:0;border-radius:50%;background:none;box-shadow:0 0 0 3px transparent;overflow:hidden}
+.avbtn svg{width:100%;height:100%;display:block}
+.avbtn[aria-pressed=true]{box-shadow:0 0 0 4px var(--oro)}
+.sentar{white-space:nowrap;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);color:var(--txt);font-size:18px;font-weight:700;padding:6px 12px 6px 6px;border-radius:30px;min-width:150px}
+.sentar[aria-pressed=true]{background:var(--oro);color:#3b2a00}
+.porrival .fr.fuera{opacity:.75}
+.quiensoy .avatar{width:56px;height:56px}
+.quiensoy .avatar:empty{display:none}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -188,6 +197,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <button id="bInstalar" class="instalar oculto" aria-label="Instalar la app" title="Instalar">📲</button>
   <div class="abanico" id="abanico"></div>
   <h1>Mi <span>Chinchorro</span></h1>
+  <div class="quiensoy"><span class="avatar" id="miAvInicio"></span></div>
   <div class="monedero">Monedero: <b id="saldo">10,00 €</b><div class="pie" id="estad"></div></div>
   <button class="grande oculto" id="bContinuar">▶ Seguir la partida</button>
   <button class="grande" id="bJugar">🃏 Partida nueva</button>
@@ -254,7 +264,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, colgar: true, chinchonGana: true,
-  ayudas: true, reparto: 2, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: 'MCarmen', nombres: 'Matilde, Elvira, Pepita'
+  ayudas: true, reparto: 2, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
 let rnd = Math.random;
@@ -889,6 +899,7 @@ const LS = {
 };
 const euros = x => (Math.round(x * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 let PREF = Object.assign({}, DEF, LS.get('mc-ajustes2', {}));
+if (PREF.niveles && !Object.keys(PREF.nivelDe || {}).length) { PREF.nivelDe = {}; ['Matilde', 'Elvira', 'Pepita'].forEach((n, k) => { if (PREF.niveles[k] != null) PREF.nivelDe[n] = PREF.niveles[k]; }); }
 let CART = Object.assign({ saldo: 10, jugadas: 0, ganadas: 0 }, LS.get('mc-cartera', {}));
 const guardarCartera = () => LS.set('mc-cartera', CART);
 
@@ -915,7 +926,20 @@ function ir(id) {
 }
 document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 
+function pedirPerfil() {
+  const pintar = () => `<h2>¡Hola! 👋</h2><div class="sub">¿Cómo te llamas?</div>
+    <input id="perfNombre" value="${String(PREF.nombre || '').replace(/"/g, '&quot;')}" placeholder="Tu nombre" style="width:100%;padding:14px;border-radius:12px;border:0;font-size:20px;margin-bottom:12px">
+    <div class="sub">Elige tu avatar</div><div class="avatares" id="perfAv">${opcionesAvatar().map(k => `<button class="avbtn" data-av="${k}" aria-pressed="${miAvatar() === k}">${avatarSVG(k)}</button>`).join('')}</div>`;
+  ventana(pintar(), [{ t: '¡A jugar!', f: () => { PREF.nombre = ($('perfNombre').value || '').trim() || 'Yo'; PREF.avatar = PREF.avatar || miAvatar(); PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); pintarInicio(); } }]);
+  const engancha = () => {
+    $('perfAv').querySelectorAll('button').forEach(b => b.onclick = () => { PREF.avatar = b.dataset.av; $('perfAv').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+    $('perfNombre').oninput = () => { PREF.nombre = $('perfNombre').value; const sel = PREF.avatar; $('perfAv').innerHTML = opcionesAvatar().map(k => `<button class="avbtn" data-av="${k}" aria-pressed="${(sel && sel.startsWith('letra:') ? 'letra:' + ((PREF.nombre || '?').trim()[0] || '?').toUpperCase() + ':' + sel.split(':')[2] : sel) === k}">${avatarSVG(k)}</button>`).join(''); engancha(); };
+  };
+  engancha();
+}
 function pintarInicio() {
+  if (!PREF.perfilHecho) setTimeout(pedirPerfil, 300);
+  $('miAvInicio').innerHTML = PREF.perfilHecho ? `${avatarSVG(miAvatar())}` : '';
   $('saldo').textContent = euros(CART.saldo);
   $('estad').textContent = CART.jugadas ? `Partidas: ${CART.jugadas} · Ganadas: ${CART.ganadas}` : '';
   $('bContinuar').classList.toggle('oculto', !LS.get('mc-partida2', null));
@@ -932,15 +956,14 @@ const OPC = [
   { k: 'jugadores', t: 'Número de jugadores', op: [[2, '2'], [3, '3'], [4, '4'], [5, '5']] },
   { k: 'baraja', t: 'Baraja', op: [[40, '40 cartas'], [48, '48 cartas (con 8 y 9)']] },
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
-  { k: 'nivel', t: 'Dificultad de todas las rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
-  { k: 'niveles', t: 'O cada una a su nivel', porRival: true },
+  { k: 'perfil', t: 'Quién eres', perfil: true },
+  { k: 'mesa', t: 'Con quién juegas', mesa: true },
+  { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
   { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
-  { k: 'nombre', t: 'Tu nombre', txt: true },
-  { k: 'nombres', t: 'Nombres de los rivales (separados por comas)', txt: true },
   { h: 'Dinero y puntos' },
   { k: 'raya', t: 'Cada raya vale (se apunta al pasarse)', op: [[0.1, '0,10 €'], [0.2, '0,20 €'], [0.5, '0,50 €'], [1, '1 €']] },
   { k: 'limite', t: 'Raya al pasar de', op: [[50, '50'], [75, '75'], [100, '100'], [150, '150']] },
@@ -959,6 +982,25 @@ function pintarAjustes() {
   for (const o of OPC) {
     if (o.h) { if (abierto) h += '</div>'; h += `<div class="grupo"><h3>${o.h}</h3>`; abierto = true; continue; }
     h += `<div class="opc"><div class="tit">${o.t}</div>`;
+    if (o.perfil) {
+      h += `<input data-k="nombre" value="${String(PREF.nombre || '').replace(/"/g, '&quot;')}" placeholder="Escribe tu nombre">`;
+      h += `<div class="tit" style="margin-top:10px">Tu avatar</div><div class="avatares">${opcionesAvatar().map(k => `<button class="avbtn" data-avatar="${k}" aria-pressed="${PREF.avatar === k}">${avatarSVG(k)}</button>`).join('')}</div></div>`;
+      continue;
+    }
+    if (o.mesa) {
+      const yo = (PREF.nombre || '').trim().toLowerCase();
+      const sent = rivalesSentados(), falta = PREF.jugadores - 1;
+      h += `<div class="nota" style="margin:-2px 0 8px">Toca para sentar o levantar. Sentados: <b>${Math.min(sent.length, falta)} de ${falta}</b>${sent.length < falta ? ' (si faltan, se sientan solos al empezar)' : ''}.</div><div class="porrival">`;
+      for (const n of NOMBRES_P) {
+        if (n.toLowerCase() === yo) continue;
+        const pos = sent.indexOf(n), dentro = pos >= 0 && pos < falta;
+        const nv = (PREF.nivelDe || {})[n] ?? PREF.nivel;
+        h += `<div class="fr ${dentro ? '' : 'fuera'}"><button class="sentar" data-sentar="${n}" aria-pressed="${dentro}">${avatarSVGmini(n)}${n}${dentro ? ' ✓' : ''}</button>`
+          + (dentro ? `<div class="seg chico">${[[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']].map(([v, l]) => `<button data-nivelde="${n}" data-v="${v}" aria-pressed="${nv === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div>` : '') + '</div>';
+      }
+      h += '<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta</div></div></div>';
+      continue;
+    }
     if (o.porRival) {
       const noms = PREF.nombres.split(',').map(x => x.trim()).filter(Boolean);
       const nv = PREF.niveles || [];
@@ -984,11 +1026,21 @@ function pintarAjustes() {
   }
   $('opciones').innerHTML = h + '</div>';
   $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => {
-    if (b.dataset.rival !== undefined) { const nv = (PREF.niveles || []).slice(); for (let k = 0; k < 4; k++) if (nv[k] == null) nv[k] = PREF.nivel; nv[+b.dataset.rival] = +b.dataset.v; PREF.niveles = nv; }
-    else { PREF[b.dataset.k] = JSON.parse(b.dataset.v); if (b.dataset.k === 'nivel') PREF.niveles = null; }
+    if (b.dataset.avatar) { PREF.avatar = b.dataset.avatar; PREF.perfilHecho = true; }
+    else if (b.dataset.sentar) {
+      const n = b.dataset.sentar, falta = PREF.jugadores - 1;
+      let r = rivalesSentados().slice(0, falta);
+      if (r.includes(n)) r = r.filter(x => x !== n);
+      else if (r.length >= falta) { aviso(`Ya hay ${falta} en la mesa: levanta antes a alguien`); return; }
+      else r.push(n);
+      PREF.rivales = r;
+    }
+    else if (b.dataset.nivelde) { PREF.nivelDe = Object.assign({}, PREF.nivelDe, { [b.dataset.nivelde]: +b.dataset.v }); }
+    else if (b.dataset.rival !== undefined) { const nv = (PREF.niveles || []).slice(); for (let k = 0; k < 4; k++) if (nv[k] == null) nv[k] = PREF.nivel; nv[+b.dataset.rival] = +b.dataset.v; PREF.niveles = nv; }
+    else { PREF[b.dataset.k] = JSON.parse(b.dataset.v); if (b.dataset.k === 'nivel') { PREF.niveles = null; PREF.nivelDe = {}; } }
     LS.set('mc-ajustes2', PREF); pintarAjustes();
   });
-  $('opciones').querySelectorAll('input').forEach(i => i.oninput = () => { PREF[i.dataset.k] = i.value; LS.set('mc-ajustes2', PREF); });
+  $('opciones').querySelectorAll('input').forEach(i => { i.oninput = () => { PREF[i.dataset.k] = i.value; if (i.dataset.k === 'nombre') PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); }; i.onchange = () => pintarAjustes(); });
 }
 $('bReset').onclick = () => { PREF = Object.assign({}, DEF); LS.set('mc-ajustes2', PREF); pintarAjustes(); aviso('Ajustes de siempre puestos'); };
 $('bSaldo').onclick = () => { CART.saldo = 10; guardarCartera(); aviso('Monedero a 10,00 €'); };
@@ -1007,18 +1059,39 @@ function ventana(html, botones) {
 
 
 /* ---------- Avatares de las jugadoras (dibujados aquí, sin imágenes) ---------- */
-const AVATARES = [
-  // pelo, color de pelo, fondo, blusa, gafas, extra
-  { pelo: 'flequillo', cp: '#a88a6c', sombra: '#7a6048', mechas: '#d2bb98', fondo: '#9fd0ec', blusa: '#d8323a', cuello: 'v', gafas: 'rect', pend: null },
-  { pelo: 'mono', cp: '#d4d2cf', sombra: '#a9a5a0', fondo: '#f6c86a', blusa: '#3b7d4f', gafas: null, pend: '#f1b800' },
-  { pelo: 'corto', cp: '#b0482b', sombra: '#7d2e18', fondo: '#f3a2b6', blusa: '#4b4fa8', gafas: 'gata', pend: null },
-  { pelo: 'melena', cp: '#5a3b26', sombra: '#3a2416', fondo: '#a9dc93', blusa: '#d9792b', gafas: 'grandes', pend: '#e5533d', mecha: '#d9d4cc' },
-  { pelo: 'rizos', cp: '#e8c35a', sombra: '#b8922f', fondo: '#c7b4f0', blusa: '#1f6fd1', gafas: null, pend: '#fff' }
-];
+const PERSONAJES = {
+  'MCarmen': { pelo: 'flequillo', cp: '#a88a6c', sombra: '#7a6048', mechas: '#d2bb98', fondo: '#9fd0ec', blusa: '#d8323a', cuello: 'v', gafas: 'rect', pend: null },
+  'Matilde': { pelo: 'mono', cp: '#d4d2cf', sombra: '#a9a5a0', fondo: '#f6c86a', blusa: '#3b7d4f', gafas: null, pend: '#f1b800' },
+  'Elvira': { pelo: 'corto', cp: '#b0482b', sombra: '#7d2e18', fondo: '#f3a2b6', blusa: '#4b4fa8', gafas: 'gata', pend: null },
+  'Pepita': { pelo: 'melena', cp: '#5a3b26', sombra: '#3a2416', fondo: '#a9dc93', blusa: '#d9792b', gafas: 'grandes', pend: '#e5533d', mecha: '#d9d4cc' },
+  'Pedro': { h: 1, pelo: 'calvo', cp: '#cfcac3', sombra: '#a29d96', fondo: '#f2b66d', blusa: '#2f5d8c', gafas: 'redondas', bigote: '#9e968b', cuello: 'camisa' },
+  'Andrés': { h: 1, pelo: 'canoso', cp: '#dcd8d2', sombra: '#aaa49c', fondo: '#9ad3c4', blusa: '#7a3b52', barba: '#d6d1c9', cuello: 'camisa' },
+  'Manolo': { h: 1, pelo: 'boina', cp: '#8a857e', sombra: '#6b665f', boina: '#2c2c34', fondo: '#e8a0a0', blusa: '#5b6b3a', bigote: '#4a3a2c', cuello: 'jersey' },
+  'Lucas': { h: 1, pelo: 'juvenil', cp: '#6b4423', sombra: '#4a2e16', fondo: '#b9c8f5', blusa: '#e0a526', gafas: 'grandes', cuello: 'camisa' }
+};
+const NOMBRES_P = Object.keys(PERSONAJES);
+const ORDEN_DEF = ['MCarmen', 'Matilde', 'Elvira', 'Pepita', 'Lucas'];
+function avatarLetra(spec) {
+  const [, letra, color] = spec.split(':');
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${color || '#f2c14e'}"/><text x="50" y="66" text-anchor="middle" font-family="system-ui,sans-serif" font-size="46" font-weight="900" fill="#fff">${(letra || '?').toUpperCase()}</text></svg>`;
+}
 function avatarSVG(k) {
-  const a = AVATARES[(k || 0) % AVATARES.length], piel = '#f2cdb0', piel2 = '#e2b392';
+  if (typeof k === 'string' && k.startsWith('letra:')) return avatarLetra(k);
+  const a = (typeof k === 'string' ? PERSONAJES[k] : PERSONAJES[ORDEN_DEF[(k || 0) % ORDEN_DEF.length]]) || PERSONAJES.Lucas;
+  const piel = '#f2cdb0', piel2 = '#e2b392';
   let atras = '', delante = '';
-  if (a.pelo === 'rizos') {
+  if (a.pelo === 'calvo') {
+    // calva con pelo canoso a los lados
+    atras = '';
+    delante = `<path d="M30 36Q27 46 31 56" stroke="${a.cp}" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M70 36Q73 46 69 56" stroke="${a.cp}" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M40 31Q48 27 56 30" stroke="#fff" stroke-width="3" fill="none" opacity=".55" stroke-linecap="round"/>`;
+  } else if (a.pelo === 'canoso') {
+    delante = `<path d="M29 44Q27 22 50 20Q73 22 71 44Q68 31 50 31Q32 31 29 44Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`;
+  } else if (a.pelo === 'boina') {
+    delante = `<path d="M30 38Q28 48 31 56" stroke="${a.cp}" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M70 38Q72 48 69 56" stroke="${a.cp}" stroke-width="6" fill="none" stroke-linecap="round"/>`
+      + `<ellipse cx="50" cy="29" rx="27" ry="10" fill="${a.boina}"/><path d="M26 31Q50 37 74 31" stroke="#0004" stroke-width="2" fill="none"/><circle cx="50" cy="18" r="3" fill="${a.boina}"/>`;
+  } else if (a.pelo === 'juvenil') {
+    delante = `<path d="M28 46Q25 20 48 17Q68 15 73 31Q74 39 72 46Q67 31 57 29Q47 35 35 33Q30 37 28 46Z" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`;
+  } else if (a.pelo === 'rizos') {
     atras = [[30, 40], [70, 40], [26, 52], [74, 52]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="11" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`).join('');
     delante = [[34, 27], [44, 22], [56, 22], [66, 27], [50, 20]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10" fill="${a.cp}" stroke="${a.sombra}" stroke-width="1.5"/>`).join('');
   } else if (a.pelo === 'flequillo') {
@@ -1042,17 +1115,43 @@ function avatarSVG(k) {
   if (a.gafas === 'gata') gafas = `<g fill="rgba(255,255,255,.2)" stroke="#7a1f3d" stroke-width="2.4"><path d="M33 45L48 46L47 53Q40 56 35 52Z"/><path d="M67 45L52 46L53 53Q60 56 65 52Z"/></g>`;
   if (a.gafas === 'grandes') gafas = `<g fill="rgba(255,255,255,.25)" stroke="#222" stroke-width="2.4"><rect x="32" y="43" width="15" height="12" rx="4"/><rect x="53" y="43" width="15" height="12" rx="4"/></g><path d="M47 48H53" stroke="#222" stroke-width="2.2"/>`;
   return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${a.fondo}"/>
-    ${atras}<path d="M18 100Q20 74 50 72Q80 74 82 100Z" fill="${a.blusa}"/>${a.cuello === 'v' ? `<path d="M38 74L50 90L62 74" fill="${piel2}" stroke="#fff" stroke-width="3"/><path d="M22 92Q26 84 32 80M78 92Q74 84 68 80" stroke="#fff" stroke-width="1.6" stroke-dasharray="3 3" fill="none"/>` : '<path d="M42 72L50 82L58 72" fill="#fff" opacity=".85"/>'}
+    ${atras}<path d="M18 100Q20 74 50 72Q80 74 82 100Z" fill="${a.blusa}"/>${a.cuello === 'camisa' ? '<path d="M40 73L50 81L45 88Z" fill="#fff"/><path d="M60 73L50 81L55 88Z" fill="#fff"/>' : a.cuello === 'jersey' ? '<path d="M38 74Q50 82 62 74" stroke="#0003" stroke-width="5" fill="none"/>' : a.cuello === 'v' ? `<path d="M38 74L50 90L62 74" fill="${piel2}" stroke="#fff" stroke-width="3"/><path d="M22 92Q26 84 32 80M78 92Q74 84 68 80" stroke="#fff" stroke-width="1.6" stroke-dasharray="3 3" fill="none"/>` : '<path d="M42 72L50 82L58 72" fill="#fff" opacity=".85"/>'}
     <rect x="44" y="60" width="12" height="14" rx="5" fill="${piel2}"/>
+    ${a.h ? `<circle cx="29.5" cy="50" r="4.5" fill="${piel2}"/><circle cx="70.5" cy="50" r="4.5" fill="${piel2}"/>` : ''}
     <ellipse cx="50" cy="48" rx="20" ry="22" fill="${piel}"/>
     ${a.pend ? `<circle cx="30" cy="56" r="3" fill="${a.pend}" stroke="#0003"/><circle cx="70" cy="56" r="3" fill="${a.pend}" stroke="#0003"/>` : ''}
+    ${a.barba ? `<path d="M30 50Q30 73 50 75Q70 73 70 50Q66 61 58 62Q50 65 42 62Q34 61 30 50Z" fill="${a.barba}"/>` : ''}
     ${delante}
     <path d="M37 48Q41 45 45 48" stroke="#4a2c1d" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M55 48Q59 45 63 48" stroke="#4a2c1d" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-    <circle cx="37" cy="56" r="4" fill="#f08a8a" opacity=".45"/><circle cx="63" cy="56" r="4" fill="#f08a8a" opacity=".45"/>
-    <path d="M43 59Q50 65 57 59" stroke="#b03a3a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <circle cx="37" cy="56" r="4" fill="#f08a8a" opacity="${a.h ? '.25' : '.45'}"/><circle cx="63" cy="56" r="4" fill="#f08a8a" opacity="${a.h ? '.25' : '.45'}"/>
+    <path d="M43 60Q50 65 57 60" stroke="${a.h ? '#7a3a2a' : '#b03a3a'}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    ${a.bigote ? `<path d="M40 57Q45 53 50 55.5Q55 53 60 57Q56 59.5 50 58Q44 59.5 40 57Z" fill="${a.bigote}"/>` : ''}
     ${gafas}</svg>`;
 }
 const NIVELES = ['Fácil', 'Normal', 'Difícil', 'Experta'], ICONIV = ['🟢', '🟡', '🔴', '🧠'];
+const COLORES_LETRA = ['#e07a3a', '#2f8a5b', '#3b6fd1', '#b03a7a'];
+function opcionesAvatar() {
+  const ini = ((PREF.nombre || '?').trim()[0] || '?').toUpperCase();
+  return NOMBRES_P.concat(COLORES_LETRA.map(c => `letra:${ini}:${c}`));
+}
+function rivalesSentados() {
+  const yo = (PREF.nombre || '').trim().toLowerCase();
+  return (PREF.rivales || []).filter(n => PERSONAJES[n] && n.toLowerCase() !== yo);
+}
+function rivalesElegidos() {
+  // los que eligió, sin ella misma, completando con el resto si faltan
+  const yo = (PREF.nombre || '').trim().toLowerCase();
+  let r = (PREF.rivales || ['Matilde', 'Elvira', 'Pepita']).filter(n => PERSONAJES[n] && n.toLowerCase() !== yo);
+  for (const n of NOMBRES_P) { if (r.length >= PREF.jugadores - 1) break; if (!r.includes(n) && n.toLowerCase() !== yo) r.push(n); }
+  return r;
+}
+function miAvatar() {
+  if (PREF.avatar && (PREF.avatar.startsWith('letra:') || PERSONAJES[PREF.avatar])) {
+    if (PREF.avatar.startsWith('letra:')) { const [, , c] = PREF.avatar.split(':'); return `letra:${((PREF.nombre || '?').trim()[0] || '?').toUpperCase()}:${c}`; }
+    return PREF.avatar;
+  }
+  return PERSONAJES[(PREF.nombre || '').trim()] ? PREF.nombre.trim() : `letra:${((PREF.nombre || '?').trim()[0] || '?').toUpperCase()}:#e07a3a`;
+}
 const avatarSVGmini = k => `<span class="avatar peq">${avatarSVG(k)}</span>`;
 const ava = (p, cls = '') => `<span class="avatar ${cls}">${avatarSVG(p.avatar ?? G.jugadores.indexOf(p))}</span>`;
 
@@ -1238,8 +1337,14 @@ function empezarPartida() {
   Object.keys(S).forEach(k => delete S[k]);
   Object.assign(S, PREF);
   if (S.baraja === 40 && S.jugadores === 5) S.baraja = 48;
-  nuevaPartida(S.nombre || 'Tú');
-  G.jugadores.forEach((p, i) => { p.avatar = i; if (i) p.nivel = (PREF.niveles && PREF.niveles[i - 1] != null) ? PREF.niveles[i - 1] : S.nivel; });
+  const rivales = rivalesElegidos().slice(0, S.jugadores - 1);
+  S.nombres = rivales.join(', ');
+  nuevaPartida((PREF.nombre || '').trim() || 'Tú');
+  G.jugadores.forEach((p, i) => {
+    if (i === 0) { p.avatar = miAvatar(); return; }
+    p.avatar = p.nombre;
+    p.nivel = (PREF.nivelDe || {})[p.nombre] ?? S.nivel;
+  });
   CART.jugadas++; guardarCartera();
   ir('juego');
   empezarMano();
