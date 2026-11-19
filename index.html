@@ -213,6 +213,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <h1>Mi <span>Chinchorro</span></h1>
   <div class="quiensoy"><span class="avatar" id="miAvInicio"></span></div>
   <div class="monedero">Monedero: <b id="saldo">10,00 €</b><div class="pie" id="estad"></div></div>
+  <button class="grande oculto" id="bVolverMesa" style="background:#7bd389;color:#073b12;box-shadow:0 5px 0 #3f9450">🌍 Volver a la mesa</button>
   <button class="grande oculto" id="bContinuar">▶ Seguir la partida</button>
   <button class="grande" id="bJugar">🃏 Partida nueva</button>
   <button class="secund" id="bAjustes">⚙️ Ajustes</button>
@@ -296,7 +297,7 @@ const PALOS = ['oros', 'copas', 'espadas', 'bastos'];
 const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
-  reenganche: true, colgar: true, chinchonGana: true,
+  reenganche: true, precioChinchon: 1, colgar: true, chinchonGana: true,
   ayudas: true, reparto: 2, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
@@ -973,6 +974,9 @@ function pedirPerfil() {
 }
 function pintarInicio() {
   if (!PREF.perfilHecho) setTimeout(pedirPerfil, 300);
+  const mo = LS.get('mc-online', null);
+  $('bVolverMesa').classList.toggle('oculto', !mo || !NUBE_OK);
+  if (mo) $('bVolverMesa').textContent = `🌍 Volver a la mesa ${mo.codigo}`;
   $('miAvInicio').innerHTML = PREF.perfilHecho ? `${avatarSVG(miAvatar())}` : '';
   $('saldo').textContent = euros(CART.saldo);
   $('estad').textContent = CART.jugadas ? `Partidas: ${CART.jugadas} · Ganadas: ${CART.ganadas}` : '';
@@ -1000,6 +1004,7 @@ const OPC = [
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { h: 'Dinero y puntos' },
   { k: 'raya', t: 'Cada raya vale (se apunta al pasarse)', op: [[0.1, '0,10 €'], [0.2, '0,20 €'], [0.5, '0,50 €'], [1, '1 €']] },
+  { k: 'precioChinchon', t: 'El chinchón se cobra (cada una le paga)', op: [[1, '1 €'], [2, '2 €'], [3, '3 €'], [5, '5 €']] },
   { k: 'limite', t: 'Raya al pasar de', op: [[50, '50'], [75, '75'], [100, '100'], [150, '150']] },
   { k: 'reenganche', t: 'Reengancharse con los puntos de la que más tiene', op: [[true, 'Sí'], [false, 'No, se queda fuera']] },
   { h: 'Reglas de la casa' },
@@ -1337,8 +1342,23 @@ function anotarTirada(mano, id) {
   if (mejor && mia - mejor.v >= 2.5) EST.mejorables++;
   guardarEst();
 }
+let chinchonNeto = 0; // lo cobrado o pagado por chinchones en esta partida
+function cobroChinchon(res) {
+  // devuelve {quien, precio, pagan} si en esta mano hubo chinchón limpio que se cobra
+  const precio = S.precioChinchon ?? 1;
+  if (!res || !res.chinchon || !res.chinchon.limpio || !precio) return null;
+  const pagan = activos().filter(k => k !== res.cierra).length;
+  return { quien: res.cierra, precio, pagan };
+}
 function anotarMano(res) {
   if (res.anotada) return; res.anotada = true;
+  const ch = cobroChinchon(res);
+  if (ch) {
+    const mov = ch.quien === YO ? ch.precio * ch.pagan : (G.jugadores[YO].fuera ? 0 : -ch.precio);
+    chinchonNeto = Math.round((chinchonNeto + mov) * 100) / 100;
+    CART.saldo = Math.round((CART.saldo + mov) * 100) / 100; guardarCartera();
+    EST.euros = Math.round((EST.euros + mov) * 100) / 100;
+  }
   const f = res.filas.find(x => x.i === YO); if (!f) return;
   EST.manos++;
   if (res.cierra === YO) { EST.cierres++; if (f.puntos === -10) EST.menos10++; if (res.chinchon && res.chinchon.limpio) EST.chinchones++; }
@@ -1409,7 +1429,7 @@ function empezarPartida() {
     p.avatar = p.nombre;
     p.nivel = (PREF.nivelDe || {})[p.nombre] ?? S.nivel;
   });
-  CART.jugadas++; guardarCartera();
+  CART.jugadas++; guardarCartera(); chinchonNeto = 0;
   ir('juego');
   empezarMano();
   setTimeout(() => alguna('inicio'), 700);
@@ -1794,7 +1814,7 @@ function ordenarMano(mano) {
 function pintar(flash) {
   if (!G) return;
   const yo = G.jugadores[YO];
-  $('infoMano').innerHTML = `Mano ${G.manoN}<br><small style="font-weight:500;opacity:.8">raya al pasar de ${S.limite}</small>`;
+  $('infoMano').innerHTML = ONLINE ? `Mano ${G.manoN} · <span style="color:var(--oro)">Mesa ${ONLINE.codigo}</span><br><small style="font-weight:500;opacity:.8">raya al pasar de ${S.limite}</small>` : `Mano ${G.manoN}<br><small style="font-weight:500;opacity:.8">raya al pasar de ${S.limite}</small>`;
   $('bote').textContent = '💰 ' + euros(G.bote);
   // rivales
   $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
@@ -1894,11 +1914,13 @@ function finPartida(titulo) {
   if (gano) { CART.saldo = Math.round((CART.saldo + G.bote) * 100) / 100; CART.ganadas++; }
   guardarCartera();
   const yo = G.jugadores[YO];
-  const neto = (gano ? G.bote : 0) - yo.rayas * S.raya;
-  EST.partidas++; if (gano) EST.ganadas++; EST.euros = Math.round((EST.euros + neto) * 100) / 100; guardarEst();
+  const neto = Math.round(((gano ? G.bote : 0) - yo.rayas * S.raya + chinchonNeto) * 100) / 100;
+  EST.partidas++; if (gano) EST.ganadas++; EST.euros = Math.round((EST.euros + neto - chinchonNeto) * 100) / 100; guardarEst();
   subirNube();
   let h = `<div class="premio">${gano ? '🏆' : '🃏'}</div><h2>${titulo ? titulo + '<br>' : ''}${gano ? '¡Has ganado la partida!' : g ? `Gana ${g.nombre}` : 'Fin de la partida'}</h2>`;
   h += `<div class="sub">${gano ? `Te llevas todas las rayas: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva las rayas:' : 'Rayas:'} ${euros(G.bote)}`}</div>`;
+  const chf = cobroChinchon(G.res);
+  if (chf && G.res.finPartida) h += `<div class="sub">🎉 Chinchón: ${chf.quien === YO ? `cada una te paga <b>${euros(chf.precio)}</b> (+${euros(chf.precio * chf.pagan)})` : `pagas <b>${euros(chf.precio)}</b> a ${esc(G.jugadores[chf.quien].nombre)}`}</div>`;
   h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;
   h += G.jugadores.map(p => `<div class="fila"><div class="top"><span class="conava">${ava(p, 'peq')}${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p === g ? pts(p.puntos) + (p.rayas ? ' · ' + p.rayas + (p.rayas === 1 ? ' raya' : ' rayas') : '') : (p.rayas === 1 ? '1 raya' : p.rayas + ' rayas') + ' · ' + euros(p.rayas * S.raya)}</span></div></div>`).join('');
   if (ONLINE) {
@@ -1983,16 +2005,18 @@ const RED_LOCAL = {
 
 function salirOnline(irInicio) {
   if (ONLINE) (ONLINE.unsubs || []).forEach(f => { try { f(); } catch (e) {} });
+  LS.del('mc-online');
   ONLINE = null; YO = 0; pendEv = []; manosPub = {};
   clearTimeout(tRemoto);
   if (irInicio) { token++; $('velo').classList.add('oculto'); ir('inicio'); }
 }
 function reglasMesa() {
-  const r = {}; ['baraja', 'comodines', 'limite', 'raya', 'maxPuntos', 'maxSueltas', 'figuras', 'valorComodin', 'reenganche', 'colgar', 'chinchonGana', 'jugadores', 'nivel'].forEach(k => r[k] = PREF[k]);
+  const r = {}; ['baraja', 'comodines', 'limite', 'raya', 'precioChinchon', 'maxPuntos', 'maxSueltas', 'figuras', 'valorComodin', 'reenganche', 'colgar', 'chinchonGana', 'jugadores', 'nivel'].forEach(k => r[k] = PREF[k]);
   if (r.baraja === 40 && r.jugadores === 5) r.baraja = 48;
   return r;
 }
 function pintarOnline(html) { $('onlineCuerpo').innerHTML = html; }
+$('bVolverMesa').onclick = () => volverMesa();
 $('bOnline').onclick = () => { if (!miUid()) return aviso('Entra antes con Google ☁️'); ir('online'); pantallaOnline(); };
 $('bVolverOnline').onclick = () => { if (ONLINE && ONLINE.rol === 'anfitrion') RED().publicar(ONLINE.codigo, { estado: 'fin', cancelada: true }).catch(() => {}); salirOnline(true); };
 function pantallaOnline() {
@@ -2048,7 +2072,7 @@ function empezarMesa() {
     if (h) { p.nombre = h.nombre; p.avatar = avatarSeguro(h.avatar); p.uid = h.uid; p.remoto = true; p.humano = false; p.nivel = 1; }
     else { p.avatar = p.nombre; p.nivel = (PREF.nivelDe || {})[p.nombre] ?? S.nivel; }
   });
-  CART.jugadas++; guardarCartera();
+  CART.jugadas++; guardarCartera(); chinchonNeto = 0;
   ONLINE.eventos = []; ONLINE.seq = 0;
   ONLINE.unsubs.push(RED().escucharAcciones(ONLINE.codigo, a => onAccion(a)));
   RED().publicar(ONLINE.codigo, { estado: 'jugando', reglas: reglasMesa() }).catch(() => {});
@@ -2068,6 +2092,7 @@ function pubOnline(evs = [], extra = {}) {
   const red = RED(), c = ONLINE.codigo;
   G.jugadores.forEach(p => { if (p.remoto) { const k = p.mano.map(x => x.id).join(','); if (manosPub[p.uid] !== k) { manosPub[p.uid] = k; red.mano(c, p.uid, limpiar(p.mano)).catch(e => console.warn('mano', e)); } } });
   red.publicar(c, limpiar(Object.assign({ publico: P, eventos: ONLINE.eventos }, extra))).catch(e => console.warn('publicar', e));
+  if (!G.terminada) LS.set('mc-online', { rol: 'anfitrion', codigo: c, G, S, seq: ONLINE.seq, eventos: ONLINE.eventos, nombreAnf: ONLINE.nombreAnf, chinchonNeto });
 }
 let tRemoto = null;
 let tQuien = null;
@@ -2117,6 +2142,30 @@ async function onAccion(a) {
   }
 }
 
+/* ---- Volver a una mesa a medias ---- */
+async function volverMesa(guardada) {
+  const d = guardada || LS.get('mc-online', null); if (!d) return;
+  try { if (window.Nube && !window.Nube.red) await window.Nube.cargar(); } catch (e) {}
+  if (!miUid()) return aviso('Entra antes con Google ☁️');
+  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
+  let m = null;
+  try { m = await red.leer(d.codigo); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
+  if (!m || m.estado !== 'jugando') { LS.del('mc-online'); pintarInicio(); return aviso('Esa mesa ya terminó o se cerró'); }
+  if (d.rol === 'invitado' || m.anfitrion !== miUid()) return entrarInvitado(d.codigo, m, true);
+  // anfitrión: retomar desde lo guardado en este móvil
+  const g = d.G ? d : LS.get('mc-online', null);
+  if (!g || !g.G || g.codigo !== d.codigo) return aviso('Esta partida se guardó en otro móvil 📱');
+  Object.keys(S).forEach(k => delete S[k]); Object.assign(S, g.S);
+  G = g.G; G.anim = null; YO = 0; chinchonNeto = g.chinchonNeto || 0;
+  ONLINE = { rol: 'anfitrion', codigo: g.codigo, uid: miUid(), sentados: [], unsubs: [], nombreAnf: g.nombreAnf, eventos: g.eventos || [], seq: g.seq || 0, empezada: true };
+  manosPub = {}; pendEv = [];
+  ONLINE.unsubs.push(red.escucharAcciones(ONLINE.codigo, a => onAccion(a)));
+  ir('juego'); aviso('¡Mesa recuperada! 🙌');
+  if (G.fase === 'resultado' && G.res) { pintar(); pubOnline(); mostrarResultado(G.res); return; }
+  G.anim = null; if (G.fase !== 'tirar' || !G.jugadores[G.turno].humano) { /* sigue el turno donde estaba */ }
+  avanzar();
+}
+
 /* ---- Invitado ---- */
 async function unirme(codigo) {
   if (!/^[A-Z]{4}$/.test(codigo)) return aviso('El código tiene 4 letras');
@@ -2124,11 +2173,20 @@ async function unirme(codigo) {
   let m = null;
   try { m = await red.leer(codigo); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
   if (!m) return aviso('No hay ninguna mesa con ese código 🤔');
-  if (m.estado !== 'espera') return aviso('Esa mesa ya ha empezado o se ha cerrado');
   const uid = miUid();
+  if (m.estado === 'jugando' && m.publico && m.publico.jugadores.some(j => j.uid === uid)) {
+    if (m.anfitrion === uid) return volverMesa({ rol: 'anfitrion', codigo });
+    return entrarInvitado(codigo, m, true);
+  }
+  if (m.estado !== 'espera') return aviso('Esa mesa ya ha empezado o se ha cerrado');
   if (m.anfitrion === uid) return aviso('¡Esa mesa es tuya!');
   try { await red.sentar(codigo, uid, limpiar({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
-  ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'la anfitriona', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false };
+  entrarInvitado(codigo, m, false);
+}
+function entrarInvitado(codigo, m, vuelta) {
+  const red = RED(), uid = miUid();
+  ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'la anfitriona', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false, vuelta };
+  if (vuelta) aviso('¡De vuelta en la mesa! 🙌');
   pintarOnline(`<div class="grupo"><h3>Mesa ${codigo}</h3><div class="sentado">${avatarSVGmini(avatarSeguro(m.avatarAnf))}${esc(m.nombreAnf || '')}<small>reparte</small></div>
     <div class="sub" style="margin-top:12px">¡Ya estás sentada! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'la anfitriona')} empiece la partida…</div></div>`);
   ONLINE.unsubs.push(red.escucharMano(codigo, uid, cartas => { if (!ONLINE) return; ONLINE.mano = cartas || []; manoRecibida(); }));
@@ -2144,8 +2202,10 @@ function onMesaInvitado(d) {
     const k = d.publico.jugadores.findIndex(j => j.uid === ONLINE.uid);
     if (k < 0) { ventana('<h2>Mesa llena</h2><div class="sub">No había sitio para ti en esta partida.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
     ONLINE.empezada = true; YO = k;
+    LS.set('mc-online', { rol: 'invitado', codigo: ONLINE.codigo, nombreAnf: ONLINE.nombreAnf });
+    if (ONLINE.vuelta) { ONLINE.ultEv = Math.max(0, ...(d.eventos || []).map(e => e.n)); if (d.publico.fase === 'resultado') ONLINE.resVisto = d.publico.manoN; }
     Object.keys(S).forEach(x => delete S[x]); Object.assign(S, PREF, d.reglas || {});
-    CART.jugadas++; guardarCartera();
+    if (!ONLINE.vuelta) { CART.jugadas++; guardarCartera(); chinchonNeto = 0; }
     G = null; aplicarPublico(d.publico);
     ir('juego');
   }
