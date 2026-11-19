@@ -188,6 +188,11 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .recfila .rval{color:var(--oro);font-size:20px;white-space:nowrap}
 #nubeCaja{display:flex;flex-direction:column;align-items:center;gap:10px}
 #nubeCaja.oculto{display:none}
+.codigo{font-size:56px;font-weight:900;letter-spacing:10px;text-align:center;color:var(--oro);background:rgba(0,0,0,.3);border-radius:18px;padding:10px 0;margin:6px 0 4px}
+.sentado{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:14px;padding:8px 12px;margin-bottom:6px;font-weight:800;font-size:18px}
+.sentado .avatar{width:40px;height:40px}
+.sentado small{margin-left:auto;font-weight:600;opacity:.8;font-size:14px}
+.inpcod{width:100%;padding:14px;border-radius:14px;border:0;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;text-transform:uppercase}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -212,6 +217,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <button class="grande" id="bJugar">🃏 Partida nueva</button>
   <button class="secund" id="bAjustes">⚙️ Ajustes</button>
   <div id="nubeCaja" class="oculto">
+    <button class="grande" id="bOnline" style="background:#7bd389;color:#073b12;box-shadow:0 5px 0 #3f9450">🌍 Jugar online</button>
     <button class="secund" id="bRecords">🏆 Récords</button>
     <button class="secund" id="bEntrar">☁️ Entrar con Google <small style="display:block;font-weight:500;opacity:.8">para ver los récords de todos</small></button>
     <div class="pie" id="nubeQuien"></div>
@@ -228,6 +234,12 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <div id="opciones"></div>
   <button class="secund" id="bReset" style="margin:16px auto">↺ Volver a los ajustes de siempre</button>
   <button class="secund" id="bSaldo" style="margin:0 auto 20px">💶 Poner el monedero a 10 €</button>
+</section>
+
+<!-- ============ ONLINE ============ -->
+<section id="online" class="oculto">
+  <div class="barra"><button class="volver" id="bVolverOnline">← Volver</button><h2>🌍 Jugar online</h2></div>
+  <div id="onlineCuerpo"></div>
 </section>
 
 <!-- ============ RÉCORDS ============ -->
@@ -1248,11 +1260,15 @@ const FRASES = {
   pillada: ['¡Anda que tus cartas malas, {p}! 🙄', '¡Mentirosa! ¿No decías que ibas fatal? 😂', 'Ya decía yo que tanto quejarse… 🤨', '¡Esta siempre igual, llorando y cerrando! 😤', 'La próxima vez no me lo creo, {p} 😒', '¡Qué cuentista eres, {p}! 😂', '{p}, a ti no te vuelvo a creer en la vida 🙅‍♀️'],
   prisa: ['¿Piensas tirar hoy, {h}? ☕', '{h}, que se enfría el café ☕', 'Venga, {h}, que nos hacemos mayores 😅', 'Piénsatelo, piénsatelo… 🥱', '{h}, ¿te has dormido? 😴']
 };
-const PROB = { farol: 1, cierraFarol: 1, pillada: 1, inicio: .9, coge: .45, cogeTuya: .7, figura: .15, cierra: 1, menos10: 1, chinchon: 1, tuCierras: .8, raya: .8, rayaTuya: .85, gana: .5, cerca: .45, prisa: 1 };
+FRASES.rayaOtra = FRASES.rayaTuya.map(f => f.replace(/\{h\}/g, '{p}'));
+FRASES.otraCierra = FRASES.tuCierras.map(f => f.replace(/\{h\}/g, '{p}'));
+const PROB = { rayaOtra: .85, otraCierra: .8, farol: 1, cierraFarol: 1, pillada: 1, inicio: .9, coge: .45, cogeTuya: .7, figura: .15, cierra: 1, menos10: 1, chinchon: 1, tuCierras: .8, raya: .8, rayaTuya: .85, gana: .5, cerca: .45, prisa: 1 };
 let ultimaFrase = {}, tUltBocadillo = 0;
-function rivalesActivos() { return activos().filter(i => i !== YO); }
+function rivalesActivos() { return activos().filter(i => i !== YO && !G.jugadores[i].remoto); }
 function decir(i, tipo, vars = {}, forzar) {
   if (!PREF.charla || !G || i == null || i === YO) return false;
+  if (ONLINE && ONLINE.rol === 'invitado') return false;           // en la mesa online hablan desde el móvil anfitrión
+  if (G.jugadores[i] && G.jugadores[i].remoto) return false;         // las personas de verdad no hablan por boca de la app
   const mult = PREF.charla === 1 ? 0.5 : 1;
   if (!forzar && Math.random() > PROB[tipo] * mult) return false;
   const ahora = Date.now();
@@ -1264,6 +1280,11 @@ function decir(i, tipo, vars = {}, forzar) {
   const h = G.jugadores[YO].nombre;
   f = f.replace(/\{h\}/g, h).replace(/\{p\}/g, vars.p || h);
   tUltBocadillo = ahora;
+  if (ONLINE && ONLINE.rol === 'anfitrion') pendEv.push({ t: 'dice', i, f });
+  return bocadillo(i, f);
+}
+function bocadillo(i, f) {
+  const caja = document.querySelector(`.rival[data-i="${i}"]`); if (!caja) return false;
   document.querySelectorAll(`.bocadillo[data-i="${i}"]`).forEach(b => b.remove());
   const b = document.createElement('div');
   b.className = 'bocadillo'; b.dataset.i = i; b.textContent = f;
@@ -1282,7 +1303,7 @@ function alguna(tipo, vars, forzar) { const r = rivalesActivos(); if (r.length) 
 function reacciones(res) {
   if (!PREF.charla || !res || !res.filas) return;
   const cola = [];
-  for (const f of res.filas) if (f.raya) cola.push(f.i === YO ? () => alguna('rayaTuya') : () => decir(f.i, 'raya'));
+  for (const f of res.filas) if (f.raya) cola.push(f.i === YO ? () => alguna('rayaTuya') : G.jugadores[f.i].remoto ? () => alguna('rayaOtra', { p: G.jugadores[f.i].nombre }) : () => decir(f.i, 'raya'));
   const act = activos();
   if (act.length > 1) {
     const min = Math.min(...act.map(i => G.jugadores[i].puntos));
@@ -1358,11 +1379,11 @@ $('bBorrarEstad').onclick = () => ventana('<h2>¿Empezar de cero?</h2><div class
 /* ================= PARTIDA ================= */
 let sel = null, orden = 0, nueva = null, token = 0, pistaId = null;
 const ESPERA = () => [1700, 1000, 450][S.velocidad];
-const YO = 0;
+let YO = 0;
 const rayitas = p => p.rayas ? ` <span style="color:#ffb4a6;font-weight:900;letter-spacing:1px" title="rayas">${'|'.repeat(p.rayas)}</span>` : '';
 const pts = n => n + (Math.abs(n) === 1 ? ' punto' : ' puntos');
 
-function guardar() { if (G && !G.terminada) LS.set('mc-partida2', { G, S }); }
+function guardar() { if (ONLINE) return; if (G && !G.terminada) LS.set('mc-partida2', { G, S }); }
 function borrarGuardada() { LS.del('mc-partida2'); }
 
 $('bJugar').onclick = () => {
@@ -1374,6 +1395,7 @@ $('bJugar').onclick = () => {
 $('bContinuar').onclick = continuar;
 
 function empezarPartida() {
+  if (ONLINE) salirOnline(false);
   Object.keys(S).forEach(k => delete S[k]);
   Object.assign(S, PREF);
   if (S.baraja === 40 && S.jugadores === 5) S.baraja = 48;
@@ -1399,14 +1421,19 @@ function continuar() {
   if (G.fase === 'resultado' && G.res) { pintar(); mostrarResultado(G.res); return; }
   pintar(); avanzar();
 }
-$('bSalir').onclick = () => ventana('<h2>¿Salir?</h2><div class="sub">La partida se queda guardada y puedes seguirla luego.</div>',
-  [{ t: 'Salir al inicio', f: () => { token++; ir('inicio'); } }, { t: 'Seguir jugando', clase: 'no' }]);
+$('bSalir').onclick = () => {
+  if (ONLINE) return ventana(`<h2>¿Salir de la mesa?</h2><div class="sub">${ONLINE.rol === 'anfitrion' ? 'La mesa se cerrará para todas.' : 'Mientras no estés, el ordenador jugará por ti.'}</div>`,
+    [{ t: 'Salir', f: () => { if (ONLINE.rol === 'anfitrion') pubOnline([], { estado: 'fin', cancelada: true }); salirOnline(true); } }, { t: 'Seguir jugando', clase: 'no' }]);
+  ventana('<h2>¿Salir?</h2><div class="sub">La partida se queda guardada y puedes seguirla luego.</div>',
+    [{ t: 'Salir al inicio', f: () => { token++; ir('inicio'); } }, { t: 'Seguir jugando', clase: 'no' }]);
+};
 
 function empezarMano() {
   repartir(); G.jugadores[YO].orden = null; orden = 1; sel = null; nueva = null; pistaId = null;
   G.res = null;
   G.jugadores.forEach(p => p.farol = null);
   G.anim = null; guardar();
+  if (ONLINE) { manosPub = {}; pubOnline([{ t: 'reparte' }]); }
   const r = G.jugadores[G.reparte];
   const t = ++token;
   const animar = PREF.reparto === 2 || (PREF.reparto === 1 && G.manoN === 1);
@@ -1479,10 +1506,11 @@ async function repartoAnimado(t) {
   const vivo = () => t === token;
   const rect = cartaMazo().getBoundingClientRect();
   try {
+    $('velo').classList.add('oculto');
     mensaje(`${r.humano ? 'Barajas tú' : 'Baraja ' + r.nombre} 🔀 · Mano ${G.manoN}`);
     await animarBarajar(rect); if (!vivo()) return;
     if (!saltarReparto) {
-      if (G.jugadores[cortadora].humano) { await esperarCorteYo(t); if (!vivo()) return; }
+      if (G.jugadores[cortadora].humano && !ONLINE) { await esperarCorteYo(t); if (!vivo()) return; }
       else mensaje(`Corta ${G.jugadores[cortadora].nombre} ✂️`);
       await animarCorte(rect); if (!vivo()) return;
     }
@@ -1522,7 +1550,11 @@ function mensaje(t, tuyo) { const m = $('mensaje'); m.textContent = t; m.classLi
 function avanzar() {
   if (!G || G.terminada) return;
   const t = ++token;
+  if (ONLINE && ONLINE.rol === 'invitado') return avanzarInvitado();
   pintar(); guardar();
+  if (ONLINE) pubOnline();
+  const pt = G.jugadores[G.turno];
+  if (pt.remoto && !pt.ausente) { mensaje(`Le toca a ${pt.nombre}… 📱`); esperarRemoto(t); return; }
   if (G.jugadores[G.turno].humano) {
     if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); vibrar('turno'); }
     else mensaje('Arrastra al montón la carta que tiras', true);
@@ -1534,6 +1566,7 @@ function avanzar() {
 
 async function turnoIA(t) {
   const i = G.turno, p = G.jugadores[i];
+  if (G.fase === 'robar') {
   const deDesc = iaRobo(i);
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(i, deDesc);
@@ -1544,9 +1577,11 @@ async function turnoIA(t) {
   // del montón se ve la carta; del mazo va boca abajo
   const vuelo = volar(origen, avatarDe(i), deDesc ? htmlCarta(c) : dorsoHTML, VUELO());
   G.manoOculta = i; pintar(); // el montón ya enseña la carta de debajo
+  if (ONLINE) pendEv.push({ t: 'roba', i, desc: deDesc, carta: deDesc ? c : null });
   await vuelo; G.manoOculta = null; if (t !== token) return;
   pintar();
   await espera(ESPERA() * 0.7); if (t !== token) return;
+  }
   const d = iaTirada(i);
   if (d.cierra) {
     mensaje(`¡${p.nombre} cierra!`);
@@ -1563,6 +1598,7 @@ async function turnoIA(t) {
   }
   await volar(avatarDe(i), cartaMonton(), htmlCarta(d.carta), VUELO()); if (t !== token) return;
   tirar(i, d.carta.id); G.ultimoTira = i;
+  if (ONLINE) pendEv.push({ t: 'tira', i, carta: d.carta });
   if (!d.carta.j && d.carta.r >= 10) decir(i, 'figura');
   else if (PREF.charla) {
     const sueltos = analizar(p.mano).muertos, mult = PREF.charla === 1 ? 0.5 : 1;
@@ -1585,16 +1621,18 @@ function manoNula() {
 }
 
 /* ---------- Acciones del jugador ---------- */
-function miTurno() { return G && !G.anim && !G.terminada && G.turno === YO && G.jugadores[YO].humano; }
+function miTurno() { return G && !G.anim && !G.terminada && G.turno === YO && G.jugadores[YO].humano && !(ONLINE && ONLINE.pend); }
 $('mMazo').onclick = () => { if (miTurno() && G.fase === 'robar') cogerYo(false); };
 $('mDesc').onclick = () => { if (miTurno() && G.fase === 'robar' && G.descarte.length) cogerYo(true); };
 function cogerYo(deDesc) {
+  if (ONLINE && ONLINE.rol === 'invitado') return enviarAccion({ tipo: 'robar', desc: !!deDesc });
   if (deDesc) { EST.cogidasMonton++; guardarEst(); }
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(YO, deDesc);
   if (c) volar(origen, $('mano'), htmlCarta(c), Math.min(VUELO(), 600));
   if (!c) return manoNula();
   nueva = c.id; sel = null; pistaId = null;
+  if (ONLINE) pubOnline([{ t: 'roba', i: YO, desc: !!deDesc, carta: deDesc ? c : null }]);
   mensaje(deDesc ? `Has cogido ${nombreCarta(c)}. Arrastra al montón la que tiras` : `Te ha salido ${nombreCarta(c)}. Arrastra al montón la que tiras`, true);
   pintar(); guardar();
 }
@@ -1685,7 +1723,13 @@ function tirarYo(id) {
   if (id === G.cogida) { pintar(); return aviso('No puedes tirar la carta que acabas de coger del montón'); }
   const c = G.jugadores[YO].mano.find(x => x.id === id); if (!c) return;
   anotarTirada(G.jugadores[YO].mano, id);
-  tirar(YO, id); G.ultimoTira = YO; sel = null; nueva = null; pistaId = null; volteada = null;
+  if (ONLINE && ONLINE.rol === 'invitado') {
+    // se quita ya de la mano para que no «vuelva»; el anfitrión lo confirma enseguida
+    G.jugadores[YO].mano = G.jugadores[YO].mano.filter(x => x.id !== id); G.descarte = [c]; G.turno = -1;
+    sel = null; nueva = null; pistaId = null; volteada = null; mensaje(`Has tirado ${nombreCarta(c)}`); pintar(true);
+    return enviarAccion({ tipo: 'tirar', id });
+  }
+  tirar(YO, id); G.ultimoTira = YO; if (ONLINE) pendEv.push({ t: 'tira', i: YO, carta: c }); sel = null; nueva = null; pistaId = null; volteada = null;
   G.jugadores[YO].ultimo = '';
   mensaje(`Has tirado ${nombreCarta(c)}`);
   pintar(true);
@@ -1697,6 +1741,7 @@ function cerrarYo(id) {
   const resto = G.jugadores[YO].mano.filter(x => x.id !== id);
   if (id === G.cogida || !puedeCerrarCon(analizar(resto))) { enderezar(); return aviso('Todavía no puedes cerrar con esa carta'); }
   clearTimeout(tVuelta); volteada = null; sel = null;
+  if (ONLINE && ONLINE.rol === 'invitado') { G.jugadores[YO].mano = G.jugadores[YO].mano.filter(x => x.id !== id); G.turno = -1; pintar(); mensaje('¡Cierras! 🎉'); return enviarAccion({ tipo: 'cerrar', id }); }
   const res = cerrar(YO, id);
   finMano(res, alguna('tuCierras', {}, true));
 }
@@ -1751,7 +1796,7 @@ function pintar(flash) {
   // rivales
   $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
     <div class="rival ${(G.anim ? G.reparte : G.turno) === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}" data-i="${i}">
-      <div class="rcab"><span class="avnv">${ava(p)}<span class="nv" title="${NIVELES[p.nivel ?? S.nivel]}">${ICONIV[p.nivel ?? S.nivel]}</span></span><div class="rtxt"><div class="nom">${p.nombre}</div>
+      <div class="rcab"><span class="avnv">${ava(p)}<span class="nv" title="${p.remoto ? 'Persona conectada' : NIVELES[p.nivel ?? S.nivel]}">${p.remoto ? '📱' : ICONIV[p.nivel ?? S.nivel]}</span></span><div class="rtxt"><div class="nom">${p.nombre}</div>
       <div class="pts">${p.fuera ? '❌ Fuera' : p.puntos + ' pts'}${rayitas(p)}</div></div></div>
       <div class="barrita"><i style="width:${Math.max(0, Math.min(100, p.puntos / S.limite * 100))}%"></i></div>
       <div class="dorsos">${p.fuera ? '' : '<i></i>'.repeat(G.anim ? (G.anim.vis[i] || 0) : p.mano.length - (G.manoOculta === i ? 1 : 0))}</div>
@@ -1797,6 +1842,7 @@ function pintar(flash) {
 function finMano(res, habla, pausa) {
   token++;
   anotarMano(res);
+  if (ONLINE && ONLINE.rol === 'anfitrion') { G.fase = 'resultado'; G.res = res; pubOnline([{ t: 'cierra', i: res.cierra }]); }
   if (!G.jugadores[res.cierra].humano) vibrar('cierre');
   G.fase = 'resultado'; G.res = res;
   pintar(); guardar();
@@ -1823,6 +1869,12 @@ function mostrarResultado(res) {
 function trasResultado(res) {
   const yo = G.jugadores[YO], f = res.filas.find(x => x.i === YO);
   if (f && f.raya) { CART.saldo = Math.round((CART.saldo - S.raya) * 100) / 100; guardarCartera(); EST.rayas++; guardarEst(); }
+  if (ONLINE && ONLINE.rol === 'invitado') {
+    if (G.terminada) return finPartida();
+    if (f && f.raya) aviso(`Te apuntas una raya ✏️`);
+    mensaje(`Esperando a que ${ONLINE.nombreAnf} reparta… 🃏`);
+    return;
+  }
   G.fase = 'robar';
   if (G.terminada) return finPartida();
   if (yo.fuera && activos().length > 1) { simularHastaFinal(); return finPartida(); }
@@ -1846,6 +1898,11 @@ function finPartida(titulo) {
   h += `<div class="sub">${gano ? `Te llevas todas las rayas: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva las rayas:' : 'Rayas:'} ${euros(G.bote)}`}</div>`;
   h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;
   h += G.jugadores.map(p => `<div class="fila"><div class="top"><span class="conava">${ava(p, 'peq')}${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p === g ? pts(p.puntos) + (p.rayas ? ' · ' + p.rayas + (p.rayas === 1 ? ' raya' : ' rayas') : '') : (p.rayas === 1 ? '1 raya' : p.rayas + ' rayas') + ' · ' + euros(p.rayas * S.raya)}</span></div></div>`).join('');
+  if (ONLINE) {
+    if (ONLINE.rol === 'anfitrion') pubOnline([{ t: 'fin' }], { estado: 'fin' });
+    const yaOnline = ONLINE; salirOnline(false);
+    return ventana(h, [{ t: 'Al inicio', f: () => ir('inicio') }]);
+  }
   ventana(h, [{ t: 'Otra partida', f: empezarPartida }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
 }
 
@@ -1891,6 +1948,292 @@ $('bInstalar').onclick = async () => {
 };
 mirarInstalar();
 
+/* ================= MESAS ONLINE =================
+   El móvil que crea la mesa (anfitrión) lleva la partida: reparte, mueve a los
+   personajes y comprueba las jugadas. Los demás (invitados) ven lo que publica
+   y le mandan lo que roban y tiran. Cada uno recibe solo sus cartas. */
+let ONLINE = null, pendEv = [], manosPub = {};
+const RED = () => (window.__redLocal ? RED_LOCAL : window.Nube && window.Nube.red);
+const limpiar = x => JSON.parse(JSON.stringify(x));
+const LETRAS_COD = 'ABCDEFGHJKLMNPRSTUVXYZ';
+const miUid = () => window.__uid || (window.Nube && window.Nube.usuario && window.Nube.usuario.uid);
+
+// Red de pruebas: varias pestañas del mismo navegador (no sale a internet)
+const RED_LOCAL = {
+  _k: (...p) => 'red:' + p.join('/'),
+  _get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  _set(k, v) { localStorage.setItem(k, JSON.stringify(v)); this._fire(k); },
+  _subs: [],
+  _fire(k) { for (const s of this._subs.slice()) if (k.startsWith(s.pref)) setTimeout(s.cb, 0); },
+  _on(pref, cb) { const s = { pref, cb }; this._subs.push(s); const h = e => { if (e.key && e.key.startsWith(pref)) cb(); }; addEventListener('storage', h); setTimeout(cb, 0); return () => { this._subs = this._subs.filter(x => x !== s); removeEventListener('storage', h); }; },
+  async crear(c, d) { if (this._get(this._k('mesa', c))) throw new Error('existe'); this._set(this._k('mesa', c), d); },
+  async leer(c) { return this._get(this._k('mesa', c)); },
+  escuchar(c, cb) { const k = this._k('mesa', c); return this._on(k, () => cb(this._get(k))); },
+  async publicar(c, d) { const k = this._k('mesa', c); this._set(k, Object.assign(this._get(k) || {}, d)); },
+  async sentar(c, uid, d) { this._set(this._k('sent', c, uid), d); },
+  escucharSentados(c, cb) { const pref = this._k('sent', c) + '/'; return this._on(pref, () => { const l = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(pref)) l.push(Object.assign({ uid: k.slice(pref.length) }, this._get(k))); } cb(l); }); },
+  async mano(c, uid, cartas) { this._set(this._k('mano', c, uid), { cartas }); },
+  escucharMano(c, uid, cb) { const k = this._k('mano', c, uid); return this._on(k, () => { const v = this._get(k); if (v) cb(v.cartas); }); },
+  async accion(c, d) { this._set(this._k('acc', c) + '/' + Date.now() + Math.random(), d); },
+  escucharAcciones(c, cb) { const pref = this._k('acc', c) + '/'; return this._on(pref, () => { const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(pref)) ks.push(k); } ks.sort().forEach(k => { const v = this._get(k); localStorage.removeItem(k); if (v) cb(v); }); }); }
+};
+
+function salirOnline(irInicio) {
+  if (ONLINE) (ONLINE.unsubs || []).forEach(f => { try { f(); } catch (e) {} });
+  ONLINE = null; YO = 0; pendEv = []; manosPub = {};
+  clearTimeout(tRemoto);
+  if (irInicio) { token++; $('velo').classList.add('oculto'); ir('inicio'); }
+}
+function reglasMesa() {
+  const r = {}; ['baraja', 'comodines', 'limite', 'raya', 'maxPuntos', 'maxSueltas', 'figuras', 'valorComodin', 'reenganche', 'colgar', 'chinchonGana', 'jugadores', 'nivel'].forEach(k => r[k] = PREF[k]);
+  if (r.baraja === 40 && r.jugadores === 5) r.baraja = 48;
+  return r;
+}
+function pintarOnline(html) { $('onlineCuerpo').innerHTML = html; }
+$('bOnline').onclick = () => { if (!miUid()) return aviso('Entra antes con Google ☁️'); ir('online'); pantallaOnline(); };
+$('bVolverOnline').onclick = () => { if (ONLINE && ONLINE.rol === 'anfitrion') RED().publicar(ONLINE.codigo, { estado: 'fin', cancelada: true }).catch(() => {}); salirOnline(true); };
+function pantallaOnline() {
+  pintarOnline(`<div class="grupo"><h3>Crear una mesa</h3><div class="nota" style="margin-bottom:10px">Te dará un código para que se sienten las demás. Los huecos los ocupan tus rivales de siempre (${esc(rivalesElegidos().slice(0, PREF.jugadores - 1).join(', '))}).</div>
+      <button class="grande" id="bCrearMesa" style="width:100%">➕ Crear mesa de ${PREF.jugadores}</button></div>
+    <div class="grupo"><h3>Sentarme en una mesa</h3><input class="inpcod" id="inpCod" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters">
+      <button class="grande" id="bUnirme" style="width:100%;margin-top:10px">🔑 Sentarme</button></div>`);
+  $('bCrearMesa').onclick = crearMesa;
+  $('bUnirme').onclick = () => unirme(($('inpCod').value || '').trim().toUpperCase());
+}
+async function crearMesa() {
+  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
+  const uid = miUid();
+  let codigo = null;
+  for (let k = 0; k < 6 && !codigo; k++) {
+    const c = Array.from({ length: 4 }, () => LETRAS_COD[Math.floor(Math.random() * LETRAS_COD.length)]).join('');
+    try { await red.crear(c, limpiar({ anfitrion: uid, nombreAnf: PREF.nombre || 'Anfitriona', avatarAnf: miAvatar(), estado: 'espera', reglas: reglasMesa(), creada: Date.now() })); codigo = c; } catch (e) { if (!/existe|exists|permission/i.test(String(e && (e.code || e.message)))) { aviso('No se pudo crear la mesa 📵'); return; } }
+  }
+  if (!codigo) return aviso('No se pudo crear la mesa, prueba otra vez');
+  ONLINE = { rol: 'anfitrion', codigo, uid, sentados: [], unsubs: [], nombreAnf: PREF.nombre };
+  ONLINE.unsubs.push(red.escucharSentados(codigo, l => { if (!ONLINE) return; ONLINE.sentados = l.filter(x => x.uid !== uid).sort((a, b) => (a.t || 0) - (b.t || 0)); salaAnfitrion(); }));
+  salaAnfitrion();
+}
+function asientosMesa() {
+  const n = PREF.jugadores, hum = ONLINE.sentados.slice(0, n - 1);
+  const ocupados = new Set([PREF.nombre].concat(hum.map(h => h.nombre)).map(x => (x || '').toLowerCase()));
+  const bots = rivalesElegidos().filter(b => !ocupados.has(b.toLowerCase())).concat(NOMBRES_P.filter(b => !ocupados.has(b.toLowerCase()))).filter((b, k, a) => a.indexOf(b) === k).slice(0, n - 1 - hum.length);
+  return { hum, bots };
+}
+function salaAnfitrion() {
+  if (!ONLINE || ONLINE.rol !== 'anfitrion' || ONLINE.empezada) return;
+  const { hum, bots } = asientosMesa(), extra = ONLINE.sentados.length - hum.length;
+  pintarOnline(`<div class="grupo"><h3>Código de tu mesa</h3><div class="codigo">${ONLINE.codigo}</div>
+      <div class="nota" style="text-align:center">Díselo a las demás: en su móvil, 🌍 Jugar online → Sentarme.</div></div>
+    <div class="grupo"><h3>En la mesa</h3>
+      <div class="sentado">${avatarSVGmini(miAvatar())}${esc(PREF.nombre || 'Tú')}<small>tú · repartes</small></div>
+      ${hum.map(h => `<div class="sentado">${avatarSVGmini(avatarSeguro(h.avatar))}${esc(h.nombre)}<small>📱 conectada</small></div>`).join('')}
+      ${bots.map(b => `<div class="sentado" style="opacity:.75">${avatarSVGmini(b)}${b}<small>🤖 la app</small></div>`).join('')}
+      ${extra > 0 ? `<div class="nota">${extra} más esperando: no caben (sube el número de jugadores en Ajustes).</div>` : ''}
+    </div>
+    <button class="grande" id="bEmpezarMesa" style="width:100%">▶ Empezar partida</button>`);
+  $('bEmpezarMesa').onclick = empezarMesa;
+}
+function empezarMesa() {
+  const { hum, bots } = asientosMesa();
+  ONLINE.empezada = true;
+  Object.keys(S).forEach(k => delete S[k]); Object.assign(S, PREF, reglasMesa());
+  S.nombres = hum.map(h => h.nombre).concat(bots).join(', ');
+  nuevaPartida((PREF.nombre || '').trim() || 'Tú');
+  G.jugadores.forEach((p, i) => {
+    if (i === 0) { p.avatar = miAvatar(); p.uid = ONLINE.uid; return; }
+    const h = hum[i - 1];
+    if (h) { p.nombre = h.nombre; p.avatar = avatarSeguro(h.avatar); p.uid = h.uid; p.remoto = true; p.humano = false; p.nivel = 1; }
+    else { p.avatar = p.nombre; p.nivel = (PREF.nivelDe || {})[p.nombre] ?? S.nivel; }
+  });
+  CART.jugadas++; guardarCartera();
+  ONLINE.eventos = []; ONLINE.seq = 0;
+  ONLINE.unsubs.push(RED().escucharAcciones(ONLINE.codigo, a => onAccion(a)));
+  RED().publicar(ONLINE.codigo, { estado: 'jugando', reglas: reglasMesa() }).catch(() => {});
+  ir('juego');
+  empezarMano();
+  setTimeout(() => alguna('inicio'), 700);
+}
+function pubOnline(evs = [], extra = {}) {
+  if (!ONLINE || ONLINE.rol !== 'anfitrion' || !G) return;
+  const ev = pendEv.concat(evs).map(e => Object.assign({ n: ++ONLINE.seq }, e)); pendEv = [];
+  ONLINE.eventos = (ONLINE.eventos || []).concat(ev).slice(-25);
+  const P = {
+    jugadores: G.jugadores.map(p => ({ nombre: p.nombre, avatar: p.avatar, uid: p.uid || null, puntos: p.puntos, rayas: p.rayas, fuera: p.fuera, reeng: p.reeng, n: p.mano.length, ultimo: p.ultimo || '', nivel: p.remoto ? null : (p.nivel ?? null) })),
+    top: G.descarte[G.descarte.length - 1] || null, nMazo: G.mazo.length, turno: G.turno, fase: G.fase, reparte: G.reparte, manoN: G.manoN,
+    bote: G.bote, cogida: G.cogida ?? null, res: G.fase === 'resultado' ? G.res : null, terminada: !!G.terminada, ganador: G.ganador ?? null, ultimoTira: G.ultimoTira ?? null
+  };
+  const red = RED(), c = ONLINE.codigo;
+  G.jugadores.forEach(p => { if (p.remoto) { const k = p.mano.map(x => x.id).join(','); if (manosPub[p.uid] !== k) { manosPub[p.uid] = k; red.mano(c, p.uid, limpiar(p.mano)).catch(e => console.warn('mano', e)); } } });
+  red.publicar(c, limpiar(Object.assign({ publico: P, eventos: ONLINE.eventos }, extra))).catch(e => console.warn('publicar', e));
+}
+let tRemoto = null;
+function esperarRemoto(t) {
+  clearTimeout(tRemoto);
+  tRemoto = setTimeout(() => {
+    if (t !== token || !G || G.terminada) return;
+    const p = G.jugadores[G.turno]; if (!p.remoto) return;
+    // tarda demasiado (o se le ha ido la conexión): juega la app por ella este turno
+    mensaje(`${p.nombre} tarda… juega la app por ella 🤖`);
+    turnoIA(t);
+  }, 75000);
+}
+async function onAccion(a) {
+  const log = m => { if (window.__log) window.__log.push(m + ' ' + a.tipo + ' turno=' + (G && G.turno) + ' fase=' + (G && G.fase)); };
+  if (!ONLINE || ONLINE.rol !== 'anfitrion' || !G || G.terminada) return log('sin partida');
+  if (G.anim) { setTimeout(() => onAccion(a), 400); return log('espera anim'); }
+  const i = G.turno, p = G.jugadores[i];
+  if (!p || !p.remoto || p.uid !== a.uid) return log('no es su turno');
+  log('ok');
+  if (a.tipo === 'robar' && G.fase === 'robar') {
+    const t = ++token;
+    const origen = a.desc ? cartaMonton() : cartaMazo();
+    const c = robar(i, !!a.desc); if (!c) return manoNula();
+    p.ultimo = a.desc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
+    mensaje(a.desc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
+    pubOnline([{ t: 'roba', i, desc: !!a.desc, carta: a.desc ? c : null }]);
+    volar(origen, avatarDe(i), a.desc ? htmlCarta(c) : dorsoHTML, VUELO()); pintar();
+    esperarRemoto(t);
+  } else if (a.tipo === 'tirar' && G.fase === 'tirar') {
+    const c = p.mano.find(x => x.id === a.id); if (!c || c.id === G.cogida) return;
+    clearTimeout(tRemoto); const t = ++token;
+    await volar(avatarDe(i), cartaMonton(), htmlCarta(c), VUELO()); if (t !== token) return;
+    tirar(i, c.id); G.ultimoTira = i; p.ultimo += ' y tiró ' + nombreCarta(c);
+    pendEv.push({ t: 'tira', i, carta: c });
+    mensaje(`${p.nombre} tira ${nombreCarta(c)}`); pintar(true);
+    setTimeout(() => { if (t === token) avanzar(); }, 400);
+  } else if (a.tipo === 'cerrar' && G.fase === 'tirar') {
+    const resto = p.mano.filter(x => x.id !== a.id);
+    if (a.id === G.cogida || !p.mano.some(x => x.id === a.id) || !puedeCerrarCon(analizar(resto))) return;
+    clearTimeout(tRemoto); const t = ++token;
+    mensaje(`¡${p.nombre} cierra!`);
+    await volar(avatarDe(i), cartaMonton(), dorsoHTML, VUELO()); if (t !== token) return;
+    const res = cerrar(i, a.id);
+    finMano(res, alguna('otraCierra', { p: p.nombre }, true));
+  }
+}
+
+/* ---- Invitado ---- */
+async function unirme(codigo) {
+  if (!/^[A-Z]{4}$/.test(codigo)) return aviso('El código tiene 4 letras');
+  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
+  let m = null;
+  try { m = await red.leer(codigo); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
+  if (!m) return aviso('No hay ninguna mesa con ese código 🤔');
+  if (m.estado !== 'espera') return aviso('Esa mesa ya ha empezado o se ha cerrado');
+  const uid = miUid();
+  if (m.anfitrion === uid) return aviso('¡Esa mesa es tuya!');
+  try { await red.sentar(codigo, uid, limpiar({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
+  ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'la anfitriona', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false };
+  pintarOnline(`<div class="grupo"><h3>Mesa ${codigo}</h3><div class="sentado">${avatarSVGmini(avatarSeguro(m.avatarAnf))}${esc(m.nombreAnf || '')}<small>reparte</small></div>
+    <div class="sub" style="margin-top:12px">¡Ya estás sentada! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'la anfitriona')} empiece la partida…</div></div>`);
+  ONLINE.unsubs.push(red.escucharMano(codigo, uid, cartas => { if (!ONLINE) return; ONLINE.mano = cartas || []; manoRecibida(); }));
+  ONLINE.unsubs.push(red.escuchar(codigo, d => onMesaInvitado(d)));
+}
+function onMesaInvitado(d) {
+  if (!ONLINE || ONLINE.rol !== 'invitado') return;
+  if (!d) return;
+  if (d.cancelada || (d.estado === 'fin' && !d.publico)) { ventana('<h2>Mesa cerrada</h2><div class="sub">La anfitriona ha cerrado la mesa.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
+  if (!d.publico) return;
+  if (!ONLINE.empezada) {
+    // primera vez: preparar la partida espejo
+    const k = d.publico.jugadores.findIndex(j => j.uid === ONLINE.uid);
+    if (k < 0) { ventana('<h2>Mesa llena</h2><div class="sub">No había sitio para ti en esta partida.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
+    ONLINE.empezada = true; YO = k;
+    Object.keys(S).forEach(x => delete S[x]); Object.assign(S, PREF, d.reglas || {});
+    CART.jugadas++; guardarCartera();
+    G = null; aplicarPublico(d.publico);
+    ir('juego');
+  }
+  ONLINE.ultimoP = d.publico;
+  for (const e of (d.eventos || [])) if (e.n > ONLINE.ultEv) { ONLINE.cola.push(e); ONLINE.ultEv = e.n; }
+  procesarCola();
+}
+function espejoMano(i, n) { return Array.from({ length: n }, (_, k) => ({ id: -1000 - i * 30 - k, s: 0, r: 1 })); }
+function aplicarPublico(P) {
+  const prev = G, miOrdenAnt = prev && prev.jugadores && prev.jugadores[YO] ? prev.jugadores[YO].orden : null;
+  const mia = ONLINE.mano || [];
+  G = {
+    jugadores: P.jugadores.map((j, i) => Object.assign({}, j, { humano: i === YO, remoto: !!j.uid && i !== YO, mano: i === YO ? mia.slice() : espejoMano(i, j.n) })),
+    descarte: P.top ? [P.top] : [], mazo: espejoMano(9, P.nMazo), turno: P.turno, fase: P.fase, reparte: P.reparte, manoN: P.manoN, bote: P.bote,
+    cogida: P.cogida, res: P.res, terminada: P.terminada, ganador: P.ganador, ultimoTira: P.ultimoTira, cogidas: {}, conocidas: {}, vistas: [], turnos: 0,
+    anim: prev ? prev.anim : null
+  };
+  G.jugadores[YO].orden = miOrdenAnt;
+  if (G.turno === YO && G.fase === 'tirar' && mia.length !== 8) G.turno = -1; // aún no ha llegado la carta robada
+  if (G.turno === YO && G.fase === 'robar' && mia.length === 8) G.turno = -1; // la carta ya llegó, falta el aviso del anfitrión
+  // la petición sigue pendiente hasta que cambie algo de mi turno
+  const clave = `${P.turno}/${P.fase}/${P.nMazo}`;
+  if (ONLINE.pend && clave !== ONLINE.pendClave) { ONLINE.pend = false; if (window.__log) window.__log.push(Date.now() % 100000 + ' pend off ' + ONLINE.pendClave + ' -> ' + clave); }
+}
+function manoRecibida() {
+  if (!G || !ONLINE || !ONLINE.ultimoP) return;
+  const antes = new Set(G.jugadores[YO].mano.map(c => c.id));
+  aplicarPublico(ONLINE.ultimoP);
+  const nuevaC = ONLINE.mano.find(c => !antes.has(c.id));
+  if (nuevaC && ONLINE.mano.length === 8) nueva = nuevaC.id;
+  if (!G.anim && !ONLINE.procesando) { pintar(); if (G.fase !== 'resultado') avanzarInvitado(); }
+}
+async function procesarCola() {
+  if (ONLINE.procesando) return; ONLINE.procesando = true;
+  try {
+    while (ONLINE && ONLINE.cola.length) { const e = ONLINE.cola.shift(); await animarEvento(e); }
+    if (ONLINE && ONLINE.ultimoP && !(G && G.anim)) trasPublico();
+  } finally { if (ONLINE) ONLINE.procesando = false; }
+  if (ONLINE && ONLINE.cola.length) procesarCola();
+}
+async function animarEvento(e) {
+  const nom = i => G.jugadores[i] ? G.jugadores[i].nombre : '';
+  if (e.t === 'dice') { bocadillo(e.i, e.f); return; }
+  if (e.t === 'reparte') { $('velo').classList.add('oculto'); ONLINE.resVisto = 0; aplicarPublico(ONLINE.ultimoP); G.jugadores[YO].orden = null; orden = 1; const t = ++token; await repartoInvitado(t); return; }
+  if (e.t === 'roba') {
+    const origen = e.desc ? cartaMonton() : cartaMazo();
+    if (e.i !== YO) mensaje(e.desc ? `${nom(e.i)} coge ${nombreCarta(e.carta)}` : `${nom(e.i)} roba del mazo`);
+    if (e.desc) { G.descarte = []; pintar(); }
+    await volar(origen, e.i === YO ? $('mano') : avatarDe(e.i), e.carta ? htmlCarta(e.carta) : dorsoHTML, VUELO());
+    return;
+  }
+  if (e.t === 'tira') {
+    if (e.i !== YO) { mensaje(`${nom(e.i)} tira ${nombreCarta(e.carta)}`); await volar(avatarDe(e.i), cartaMonton(), htmlCarta(e.carta), VUELO()); }
+    G.descarte = [e.carta]; pintar(true); return;
+  }
+  if (e.t === 'cierra') {
+    if (e.i !== YO) { mensaje(`¡${nom(e.i)} cierra!`); vibrar('cierre'); await volar(avatarDe(e.i), cartaMonton(), dorsoHTML, VUELO()); }
+    return;
+  }
+}
+async function repartoInvitado(t) {
+  // mismo espectáculo que en local, pero sin tocar el turno (lo lleva el anfitrión)
+  await repartoAnimado(t);
+}
+function trasPublico() {
+  aplicarPublico(ONLINE.ultimoP);
+  pintar();
+  if (G.fase === 'resultado' && G.res && ONLINE.resVisto !== G.manoN) {
+    ONLINE.resVisto = G.manoN;
+    anotarMano(G.res);
+    setTimeout(() => { if (ONLINE && G && G.res) mostrarResultado(G.res); }, 1500);
+    return;
+  }
+  avanzarInvitado();
+}
+function avanzarInvitado() {
+  if (!G || G.anim) return;
+  pintar();
+  if (G.fase === 'resultado') return;
+  if (G.turno === YO) {
+    if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); vibrar('turno'); }
+    else mensaje('Arrastra al montón la carta que tiras', true);
+  } else if (G.turno >= 0 && G.jugadores[G.turno]) mensaje(`Le toca a ${G.jugadores[G.turno].nombre}…`);
+}
+function enviarAccion(a) {
+  if (!ONLINE) return;
+  ONLINE.pend = true; if (window.__log) window.__log.push(Date.now() % 100000 + ' envio ' + a.tipo + ' miTurno=' + G.turno + ' fase=' + G.fase);
+  const P = ONLINE.ultimoP; ONLINE.pendClave = P ? `${P.turno}/${P.fase}/${P.nMazo}` : '';
+  setTimeout(() => { if (ONLINE && ONLINE.pend) { ONLINE.pend = false; pintar(); } }, 8000);
+  if (a.tipo === 'robar') mensaje('…');
+  RED().accion(ONLINE.codigo, limpiar(Object.assign({ uid: ONLINE.uid, t: Date.now() }, a))).catch(() => { ONLINE.pend = false; aviso('No llegó tu jugada 📵 Inténtalo otra vez'); pintar(); });
+}
+
 /* ---------- Nube: Google + récords (solo en la web publicada) ---------- */
 const NUBE_OK = /(^|\.)quinigrama\.github\.io$/.test(location.hostname) || location.hostname === 'localhost' || window.__nubePrueba;
 function datosNube() {
@@ -1906,6 +2249,7 @@ function pintarNube() {
   const u = window.Nube && window.Nube.usuario;
   $('bEntrar').classList.toggle('oculto', !!u);
   $('bRecords').classList.toggle('oculto', !u);
+  $('bOnline').classList.toggle('oculto', !u);
   $('nubeQuien').innerHTML = u ? `Sesión iniciada: ${esc(u.displayName || u.email || '')} · <a href="#" id="bSalirNube" style="color:var(--oro)">salir</a>` : '';
   const s = $('bSalirNube'); if (s) s.onclick = ev => { ev.preventDefault(); window.Nube.salir().then(pintarNube); };
 }
@@ -1988,7 +2332,20 @@ async function records() {
   const s = await f.fs.getDocs(f.fs.query(f.fs.collection(f.db, 'jugadores'), f.fs.limit(300)));
   return s.docs.map(x => Object.assign({ id: x.id }, x.data()));
 }
-window.Nube = { cargar, entrar, salir, subir, records, get usuario() { return usuario; } };
+// Mesas online por Firestore (mismo «idioma» que la red de pruebas)
+const red = {
+  async crear(c, d) { const f = fb, r = f.fs.doc(f.db, 'mesas', c); const s = await f.fs.getDoc(r); if (s.exists()) throw new Error('existe'); await f.fs.setDoc(r, d); },
+  async leer(c) { const s = await fb.fs.getDoc(fb.fs.doc(fb.db, 'mesas', c)); return s.exists() ? s.data() : null; },
+  escuchar(c, cb) { return fb.fs.onSnapshot(fb.fs.doc(fb.db, 'mesas', c), s => cb(s.exists() ? s.data() : null), e => console.warn('mesa', e)); },
+  async publicar(c, d) { await fb.fs.updateDoc(fb.fs.doc(fb.db, 'mesas', c), d); },
+  async sentar(c, uid, d) { await fb.fs.setDoc(fb.fs.doc(fb.db, 'mesas', c, 'sentados', uid), d); },
+  escucharSentados(c, cb) { return fb.fs.onSnapshot(fb.fs.collection(fb.db, 'mesas', c, 'sentados'), s => cb(s.docs.map(x => Object.assign({ uid: x.id }, x.data()))), e => console.warn('sentados', e)); },
+  async mano(c, uid, cartas) { await fb.fs.setDoc(fb.fs.doc(fb.db, 'mesas', c, 'manos', uid), { cartas }); },
+  escucharMano(c, uid, cb) { return fb.fs.onSnapshot(fb.fs.doc(fb.db, 'mesas', c, 'manos', uid), s => { if (s.exists()) cb(s.data().cartas); }, e => console.warn('mano', e)); },
+  async accion(c, d) { await fb.fs.addDoc(fb.fs.collection(fb.db, 'mesas', c, 'acciones'), d); },
+  escucharAcciones(c, cb) { return fb.fs.onSnapshot(fb.fs.collection(fb.db, 'mesas', c, 'acciones'), s => { s.docChanges().forEach(ch => { if (ch.type === 'added') { cb(ch.doc.data()); fb.fs.deleteDoc(ch.doc.ref).catch(() => {}); } }); }, e => console.warn('acciones', e)); }
+};
+window.Nube = { cargar, entrar, salir, subir, records, get usuario() { return usuario; }, get red() { return fb ? red : null; } };
 try { if (localStorage.getItem('mc-nube') === '1' && navigator.onLine) cargar().catch(() => {}); } catch (e) {}
 </script>
 </body>
