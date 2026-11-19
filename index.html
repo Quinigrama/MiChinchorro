@@ -193,6 +193,11 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .sentado .avatar{width:40px;height:40px}
 .sentado small{margin-left:auto;font-weight:600;opacity:.8;font-size:14px}
 .inpcod{width:100%;padding:14px;border-radius:14px;border:0;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;text-transform:uppercase}
+.fotowrap{position:relative;display:block;width:100%;height:100%}
+.fotowrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.soy{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.soybtn{display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,.08);color:var(--txt);font-weight:800;font-size:15px;padding:8px 2px;border-radius:14px}
+.soybtn .avatar{width:56px;height:56px}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -962,15 +967,36 @@ function ir(id) {
 document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 
 function pedirPerfil() {
-  const pintar = () => `<h2>¡Hola! 👋</h2><div class="sub">¿Cómo te llamas?</div>
-    <input id="perfNombre" value="${String(PREF.nombre || '').replace(/"/g, '&quot;')}" placeholder="Tu nombre" style="width:100%;padding:14px;border-radius:12px;border:0;font-size:20px;margin-bottom:12px">
-    <div class="sub">Elige tu avatar</div><div class="avatares" id="perfAv">${opcionesAvatar().map(k => `<button class="avbtn" data-av="${k}" aria-pressed="${miAvatar() === k}">${avatarSVG(k)}</button>`).join('')}</div>`;
-  ventana(pintar(), [{ t: '¡A jugar!', f: () => { PREF.nombre = ($('perfNombre').value || '').trim() || 'Yo'; PREF.avatar = PREF.avatar || miAvatar(); PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); pintarInicio(); } }]);
-  const engancha = () => {
-    $('perfAv').querySelectorAll('button').forEach(b => b.onclick = () => { PREF.avatar = b.dataset.av; $('perfAv').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
-    $('perfNombre').oninput = () => { PREF.nombre = $('perfNombre').value; const sel = PREF.avatar; $('perfAv').innerHTML = opcionesAvatar().map(k => `<button class="avbtn" data-av="${k}" aria-pressed="${(sel && sel.startsWith('letra:') ? 'letra:' + ((PREF.nombre || '?').trim()[0] || '?').toUpperCase() + ':' + sel.split(':')[2] : sel) === k}">${avatarSVG(k)}</button>`).join(''); engancha(); };
+  const html = `<h2>¡Hola! 👋</h2>
+    <div class="sub">¿Quién eres? Toca tu personaje…</div>
+    <div class="soy">${NOMBRES_P.map(n => `<button class="soybtn" data-soy="${n}"><span class="avatar">${avatarSVG(n)}</span>${n}</button>`).join('')}</div>
+    <div class="sub" style="margin-top:14px">…o escribe tu nombre</div>
+    <input id="perfNombre" value="${esc(PERSONAJES[(PREF.nombre || '').trim()] ? '' : PREF.nombre || '')}" placeholder="Tu nombre" style="width:100%;padding:14px;border-radius:12px;border:0;font-size:20px;margin-bottom:10px">
+    <div id="perfAvCaja" class="oculto"><div class="sub">y elige tu avatar</div><div class="avatares" id="perfAv"></div></div>`;
+  ventana(html, [{ t: '¡A jugar!', f: () => {
+    PREF.nombre = ($('perfNombre').value || '').trim() || 'Yo';
+    if (!PREF.avatar || PERSONAJES[PREF.avatar]) PREF.avatar = `letra:${PREF.nombre[0].toUpperCase()}:#e07a3a`;
+    PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); pintarInicio();
+  } }]);
+  // un toque en un personaje: nombre y avatar de golpe
+  document.querySelectorAll('.soybtn').forEach(b => b.onclick = () => {
+    const n = b.dataset.soy;
+    PREF.nombre = n; PREF.avatar = n; PREF.perfilHecho = true;
+    if (PREF.rivales) PREF.rivales = PREF.rivales.filter(x => x !== n);
+    LS.set('mc-ajustes2', PREF); $('velo').classList.add('oculto'); pintarInicio();
+    aviso(`¡Hola, ${n}! 😊`);
+  });
+  const pintaAv = () => {
+    const sel = miAvatar();
+    $('perfAv').innerHTML = opcionesAvatar().filter(k => !PERSONAJES[k]).map(k => `<button class="avbtn" data-av="${k}" aria-pressed="${(k === 'google' ? PREF.avatar === 'google' : sel === k)}">${avatarSVG(k)}</button>`).join('');
+    $('perfAv').querySelectorAll('button').forEach(b => b.onclick = () => { PREF.avatar = b.dataset.av; pintaAv(); });
   };
-  engancha();
+  $('perfNombre').oninput = () => {
+    PREF.nombre = $('perfNombre').value;
+    if (!PREF.avatar || PERSONAJES[PREF.avatar]) PREF.avatar = PREF.fotoGoogle ? 'google' : 'letra:X:#e07a3a';
+    $('perfAvCaja').classList.toggle('oculto', !PREF.nombre.trim());
+    pintaAv();
+  };
 }
 function pintarInicio() {
   if (!PREF.perfilHecho) setTimeout(pedirPerfil, 300);
@@ -1117,7 +1143,15 @@ function avatarLetra(spec) {
   const [, letra, color] = spec.split(':');
   return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${color || '#f2c14e'}"/><text x="50" y="66" text-anchor="middle" font-family="system-ui,sans-serif" font-size="46" font-weight="900" fill="#fff">${(letra || '?').toUpperCase()}</text></svg>`;
 }
+let fotoInicial = null;
+const FOTO_OK = /^foto:https:\/\/[a-z0-9.-]*googleusercontent\.com\/[^\s"'<>]+$/i;
 function avatarSVG(k) {
+  if (k === 'google') k = PREF.fotoGoogle ? 'foto:' + PREF.fotoGoogle : 'letra:G:#4285f4';
+  if (typeof k === 'string' && k.startsWith('foto:')) {
+    // la foto encima y la inicial debajo, por si no hay internet
+    const url = FOTO_OK.test(k) ? k.slice(5) : '';
+    return `<span class="fotowrap">${avatarLetra('letra:' + (fotoInicial || ((PREF.nombre || '?').trim()[0] || '?')).toUpperCase() + ':#4285f4')}${url ? `<img src="${esc(url)}" alt="" referrerpolicy="no-referrer" draggable="false" onerror="this.remove()">` : ''}</span>`;
+  }
   if (typeof k === 'string' && k.startsWith('letra:')) return avatarLetra(k);
   const a = (typeof k === 'string' ? PERSONAJES[k] : PERSONAJES[ORDEN_DEF[(k || 0) % ORDEN_DEF.length]]) || PERSONAJES.Lucas;
   if (a.img) return `<img src="${a.img}" alt="" draggable="false">`;
@@ -1189,7 +1223,7 @@ const NIVELES = ['Fácil', 'Normal', 'Difícil', 'Experta'], ICONIV = ['🟢', '
 const COLORES_LETRA = ['#e07a3a', '#2f8a5b', '#3b6fd1', '#b03a7a'];
 function opcionesAvatar() {
   const ini = ((PREF.nombre || '?').trim()[0] || '?').toUpperCase();
-  return NOMBRES_P.concat(COLORES_LETRA.map(c => `letra:${ini}:${c}`));
+  return (PREF.fotoGoogle ? ['google'] : []).concat(NOMBRES_P, COLORES_LETRA.map(c => `letra:${ini}:${c}`));
 }
 function rivalesSentados() {
   const yo = (PREF.nombre || '').trim().toLowerCase();
@@ -1203,6 +1237,7 @@ function rivalesElegidos() {
   return r;
 }
 function miAvatar() {
+  if (PREF.avatar === 'google') return PREF.fotoGoogle ? 'foto:' + PREF.fotoGoogle : `letra:${((PREF.nombre || '?').trim()[0] || '?').toUpperCase()}:#4285f4`;
   if (PREF.avatar && (PREF.avatar.startsWith('letra:') || PERSONAJES[PREF.avatar])) {
     if (PREF.avatar.startsWith('letra:')) { const [, , c] = PREF.avatar.split(':'); return `letra:${((PREF.nombre || '?').trim()[0] || '?').toUpperCase()}:${c}`; }
     return PREF.avatar;
@@ -1210,7 +1245,8 @@ function miAvatar() {
   return PERSONAJES[(PREF.nombre || '').trim()] ? PREF.nombre.trim() : `letra:${((PREF.nombre || '?').trim()[0] || '?').toUpperCase()}:#e07a3a`;
 }
 const avatarSVGmini = k => `<span class="avatar peq">${avatarSVG(k)}</span>`;
-const ava = (p, cls = '') => `<span class="avatar ${cls}">${avatarSVG(p.avatar ?? G.jugadores.indexOf(p))}</span>`;
+const conInicial = (n, f) => { fotoInicial = (n || '?').trim()[0] || '?'; try { return f(); } finally { fotoInicial = null; } };
+const ava = (p, cls = '') => `<span class="avatar ${cls}">${conInicial(p.nombre, () => avatarSVG(p.avatar ?? G.jugadores.indexOf(p)))}</span>`;
 
 /* ---------- Cartas que vuelan por la mesa ---------- */
 const VUELO = () => [950, 700, 420][S.velocidad];
@@ -2319,7 +2355,10 @@ function pintarNube() {
   const s = $('bSalirNube'); if (s) s.onclick = ev => { ev.preventDefault(); window.Nube.salir().then(pintarNube); };
 }
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-window.addEventListener('nube', () => { pintarNube(); if (!$('records').classList.contains('oculto')) pintarRecords(); });
+window.addEventListener('nube', () => {
+  const u = window.Nube && window.Nube.usuario;
+  if (u && u.photoURL && PREF.fotoGoogle !== u.photoURL) { PREF.fotoGoogle = u.photoURL; LS.set('mc-ajustes2', PREF); }
+  pintarNube(); if (!$('records').classList.contains('oculto')) pintarRecords(); });
 $('bEntrar').onclick = async () => {
   if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
   try { aviso('Abriendo Google…'); await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {} pintarNube(); aviso('¡Dentro! ☁️ Ya puedes ver los récords'); }
@@ -2328,7 +2367,7 @@ $('bEntrar').onclick = async () => {
 $('bRecords').onclick = () => ir('records');
 let recOrden = 'ganadas', recCache = null;
 const REC_TABS = [['ganadas', '🏆 Ganadas'], ['pct', '% Victorias'], ['chinchones', '🎉 Chinchón'], ['menos10', '✨ −10'], ['rayas', '✏️ Rayas']];
-function avatarSeguro(k) { return (typeof k === 'string' && (PERSONAJES[k] || /^letra:[^:<>"]{1,2}:#[0-9a-f]{6}$/i.test(k))) ? k : 'letra:?:#888888'; }
+function avatarSeguro(k) { return (typeof k === 'string' && (PERSONAJES[k] || FOTO_OK.test(k) || /^letra:[^:<>"]{1,2}:#[0-9a-f]{6}$/i.test(k))) ? k : 'letra:?:#888888'; }
 async function pintarRecords() {
   $('recTabs').innerHTML = REC_TABS.map(([k, l]) => `<button data-rec="${k}" aria-pressed="${recOrden === k}">${l}</button>`).join('');
   $('recTabs').querySelectorAll('button').forEach(b => b.onclick = () => { recOrden = b.dataset.rec; pintarRecords(); });
@@ -2349,7 +2388,7 @@ async function pintarRecords() {
   const medalla = k => ['🥇', '🥈', '🥉'][k] || (k + 1) + '.';
   const etiqueta = f => recOrden === 'pct' ? f.pct + ' %' : recOrden === 'rayas' ? `${media(f.e.rayas, f.e.partidas)} por partida` : val(f);
   lista.innerHTML = filas.slice(0, 50).map((f, k) => `<div class="recfila ${f.id === yo ? 'mia' : ''}">
-      <span class="pos">${medalla(k)}</span><span class="avatar">${avatarSVG(f.avatar)}</span>
+      <span class="pos">${medalla(k)}</span><span class="avatar">${conInicial(f.nombre, () => avatarSVG(f.avatar))}</span>
       <span class="rnom">${esc(f.nombre || 'Sin nombre')}<small>${f.e.partidas} partidas · ${f.e.ganadas} ganadas</small></span>
       <b class="rval">${etiqueta(f)}</b></div>`).join('')
     + (asc ? '<div class="nota">En rayas gana quien menos paga por partida 😉</div>' : '');
