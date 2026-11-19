@@ -179,6 +179,15 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .porrival .fr.fuera{opacity:.75}
 .quiensoy .avatar{width:56px;height:56px}
 .quiensoy .avatar:empty{display:none}
+.recfila{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:14px;padding:8px 12px;margin-bottom:6px}
+.recfila.mia{outline:3px solid var(--oro)}
+.recfila .pos{width:30px;text-align:center;font-weight:900;font-size:20px}
+.recfila .avatar{width:42px;height:42px}
+.recfila .rnom{flex:1;min-width:0;font-weight:800;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recfila .rnom small{display:block;font-weight:500;font-size:13px;opacity:.75}
+.recfila .rval{color:var(--oro);font-size:20px;white-space:nowrap}
+#nubeCaja{display:flex;flex-direction:column;align-items:center;gap:10px}
+#nubeCaja.oculto{display:none}
 .premio{font-size:54px;text-align:center}
 </style>
 </head>
@@ -202,6 +211,11 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <button class="grande oculto" id="bContinuar">▶ Seguir la partida</button>
   <button class="grande" id="bJugar">🃏 Partida nueva</button>
   <button class="secund" id="bAjustes">⚙️ Ajustes</button>
+  <div id="nubeCaja" class="oculto">
+    <button class="secund" id="bRecords">🏆 Récords</button>
+    <button class="secund" id="bEntrar">☁️ Entrar con Google <small style="display:block;font-weight:500;opacity:.8">para ver los récords de todos</small></button>
+    <div class="pie" id="nubeQuien"></div>
+  </div>
   <button class="secund" id="bEstad">📊 Mis estadísticas</button>
   <button class="secund" id="bReglas">📖 Cómo se juega</button>
   <div class="pie">El dinero es de mentira 😉</div>
@@ -214,6 +228,13 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
   <div id="opciones"></div>
   <button class="secund" id="bReset" style="margin:16px auto">↺ Volver a los ajustes de siempre</button>
   <button class="secund" id="bSaldo" style="margin:0 auto 20px">💶 Poner el monedero a 10 €</button>
+</section>
+
+<!-- ============ RÉCORDS ============ -->
+<section id="records" class="oculto">
+  <div class="barra"><button class="volver" data-ir="inicio">← Volver</button><h2>🏆 Récords</h2></div>
+  <div class="seg" id="recTabs" style="margin-bottom:10px"></div>
+  <div id="recLista"></div>
 </section>
 
 <!-- ============ ESTADÍSTICAS ============ -->
@@ -923,6 +944,7 @@ function ir(id) {
   if (id === 'inicio') pintarInicio();
   if (id === 'ajustes') pintarAjustes();
   if (id === 'estad') pintarEstad();
+  if (id === 'records') pintarRecords();
 }
 document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 
@@ -1819,6 +1841,7 @@ function finPartida(titulo) {
   const yo = G.jugadores[YO];
   const neto = (gano ? G.bote : 0) - yo.rayas * S.raya;
   EST.partidas++; if (gano) EST.ganadas++; EST.euros = Math.round((EST.euros + neto) * 100) / 100; guardarEst();
+  subirNube();
   let h = `<div class="premio">${gano ? '🏆' : '🃏'}</div><h2>${titulo ? titulo + '<br>' : ''}${gano ? '¡Has ganado la partida!' : g ? `Gana ${g.nombre}` : 'Fin de la partida'}</h2>`;
   h += `<div class="sub">${gano ? `Te llevas todas las rayas: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva las rayas:' : 'Rayas:'} ${euros(G.bote)}`}</div>`;
   h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;
@@ -1868,9 +1891,105 @@ $('bInstalar').onclick = async () => {
 };
 mirarInstalar();
 
+/* ---------- Nube: Google + récords (solo en la web publicada) ---------- */
+const NUBE_OK = /(^|\.)quinigrama\.github\.io$/.test(location.hostname) || location.hostname === 'localhost' || window.__nubePrueba;
+function datosNube() {
+  const e = EST;
+  return { nombre: (PREF.nombre || 'Sin nombre').slice(0, 24), avatar: miAvatar(),
+    estad: { partidas: e.partidas, ganadas: e.ganadas, manos: e.manos, cierres: e.cierres, menos10: e.menos10, chinchones: e.chinchones, rayas: e.rayas, euros: e.euros } };
+}
+window.datosNube = datosNube;
+function subirNube() { try { if (window.Nube && window.Nube.usuario) window.Nube.subir().catch(() => {}); } catch (e) {} }
+function pintarNube() {
+  const caja = $('nubeCaja'); if (!caja) return;
+  caja.classList.toggle('oculto', !NUBE_OK);
+  const u = window.Nube && window.Nube.usuario;
+  $('bEntrar').classList.toggle('oculto', !!u);
+  $('bRecords').classList.toggle('oculto', !u);
+  $('nubeQuien').innerHTML = u ? `Sesión iniciada: ${esc(u.displayName || u.email || '')} · <a href="#" id="bSalirNube" style="color:var(--oro)">salir</a>` : '';
+  const s = $('bSalirNube'); if (s) s.onclick = ev => { ev.preventDefault(); window.Nube.salir().then(pintarNube); };
+}
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+window.addEventListener('nube', () => { pintarNube(); if (!$('records').classList.contains('oculto')) pintarRecords(); });
+$('bEntrar').onclick = async () => {
+  if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
+  try { aviso('Abriendo Google…'); await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {} pintarNube(); aviso('¡Dentro! ☁️ Ya puedes ver los récords'); }
+  catch (e) { aviso(/popup/i.test(e && e.code || '') ? 'Se cerró la ventana de Google' : 'No se pudo entrar. ¿Hay internet?'); }
+};
+$('bRecords').onclick = () => ir('records');
+let recOrden = 'ganadas', recCache = null;
+const REC_TABS = [['ganadas', '🏆 Ganadas'], ['pct', '% Victorias'], ['chinchones', '🎉 Chinchón'], ['menos10', '✨ −10'], ['rayas', '✏️ Rayas']];
+function avatarSeguro(k) { return (typeof k === 'string' && (PERSONAJES[k] || /^letra:[^:<>"]{1,2}:#[0-9a-f]{6}$/i.test(k))) ? k : 'letra:?:#888888'; }
+async function pintarRecords() {
+  $('recTabs').innerHTML = REC_TABS.map(([k, l]) => `<button data-rec="${k}" aria-pressed="${recOrden === k}">${l}</button>`).join('');
+  $('recTabs').querySelectorAll('button').forEach(b => b.onclick = () => { recOrden = b.dataset.rec; pintarRecords(); });
+  const lista = $('recLista');
+  if (!window.Nube || !window.Nube.usuario) { lista.innerHTML = '<div class="grupo">Entra con Google desde el inicio para ver los récords.</div>'; return; }
+  if (!recCache) lista.innerHTML = '<div class="grupo">Cargando récords… ⏳</div>';
+  try {
+    if (!recCache || Date.now() - recCache.t > 30000) { await window.Nube.subir().catch(() => {}); recCache = { t: Date.now(), datos: await window.Nube.records() }; }
+  } catch (e) { lista.innerHTML = '<div class="grupo">No se pudieron cargar los récords. ¿Hay internet? 📵</div>'; return; }
+  const yo = window.Nube.usuario.uid;
+  const filas = recCache.datos.filter(d => d.estad && d.estad.partidas > 0).map(d => {
+    const e = d.estad; return { id: d.id, nombre: d.nombre, avatar: avatarSeguro(d.avatar), e, pct: e.partidas ? Math.round(100 * e.ganadas / e.partidas) : 0 };
+  });
+  const val = f => recOrden === 'pct' ? f.pct : (f.e[recOrden] || 0);
+  const asc = recOrden === 'rayas';
+  filas.sort((a, b) => asc ? (val(a) / Math.max(1, a.e.partidas)) - (val(b) / Math.max(1, b.e.partidas)) : val(b) - val(a) || b.e.partidas - a.e.partidas);
+  if (!filas.length) { lista.innerHTML = '<div class="grupo">Todavía no hay récords. ¡Juega una partida y serás la primera! 🥇</div>'; return; }
+  const medalla = k => ['🥇', '🥈', '🥉'][k] || (k + 1) + '.';
+  const etiqueta = f => recOrden === 'pct' ? f.pct + ' %' : recOrden === 'rayas' ? `${media(f.e.rayas, f.e.partidas)} por partida` : val(f);
+  lista.innerHTML = filas.slice(0, 50).map((f, k) => `<div class="recfila ${f.id === yo ? 'mia' : ''}">
+      <span class="pos">${medalla(k)}</span><span class="avatar">${avatarSVG(f.avatar)}</span>
+      <span class="rnom">${esc(f.nombre || 'Sin nombre')}<small>${f.e.partidas} partidas · ${f.e.ganadas} ganadas</small></span>
+      <b class="rval">${etiqueta(f)}</b></div>`).join('')
+    + (asc ? '<div class="nota">En rayas gana quien menos paga por partida 😉</div>' : '');
+}
+pintarNube();
+
 ir('inicio');
 // Funciona sin internet una vez instalada
 if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
+</script>
+<script type="module">
+// Firebase: se carga solo cuando hace falta (y nunca impide jugar sin internet)
+const CFG = {
+  apiKey: "AIzaSyDoIPykr9tW7qSAVVniWAGuhnxCzm3-oak",
+  authDomain: "michinchorro.firebaseapp.com",
+  projectId: "michinchorro",
+  storageBucket: "michinchorro.firebasestorage.app",
+  messagingSenderId: "167915556831",
+  appId: "1:167915556831:web:1e55307f16f38d15677e6a"
+};
+const B = 'https://www.gstatic.com/firebasejs/13.4.0/';
+let fb = null, usuario = null, cargando = null;
+function cargar() {
+  if (cargando) return cargando;
+  cargando = (async () => {
+    const [app, auth, fs] = await Promise.all([import(B + 'firebase-app.js'), import(B + 'firebase-auth.js'), import(B + 'firebase-firestore.js')]);
+    const a = app.initializeApp(CFG);
+    const au = auth.getAuth(a); au.languageCode = 'es';
+    fb = { auth, fs, au, db: fs.getFirestore(a) };
+    await new Promise(res => auth.onAuthStateChanged(au, u => { usuario = u; window.dispatchEvent(new CustomEvent('nube')); if (u) subir().catch(() => {}); res(); }));
+    return fb;
+  })();
+  cargando.catch(() => { cargando = null; });
+  return cargando;
+}
+async function entrar() { const f = await cargar(); const p = new f.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); await f.auth.signInWithPopup(f.au, p); }
+async function salir() { const f = await cargar(); await f.auth.signOut(f.au); try { localStorage.removeItem('mc-nube'); } catch (e) {} }
+async function subir() {
+  if (!usuario || !fb) return;
+  const d = window.datosNube();
+  await fb.fs.setDoc(fb.fs.doc(fb.db, 'jugadores', usuario.uid), Object.assign(d, { actualizado: fb.fs.serverTimestamp() }), { merge: true });
+}
+async function records() {
+  const f = await cargar(); if (!usuario) throw new Error('sin sesión');
+  const s = await f.fs.getDocs(f.fs.query(f.fs.collection(f.db, 'jugadores'), f.fs.limit(300)));
+  return s.docs.map(x => Object.assign({ id: x.id }, x.data()));
+}
+window.Nube = { cargar, entrar, salir, subir, records, get usuario() { return usuario; } };
+try { if (localStorage.getItem('mc-nube') === '1' && navigator.onLine) cargar().catch(() => {}); } catch (e) {}
 </script>
 </body>
 </html>
