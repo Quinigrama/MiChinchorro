@@ -1246,7 +1246,7 @@ const FRASES = {
   inicio: ['¡A ver quién paga hoy! 💸', 'Barajad bien, que la última vez hubo trampa 😏', 'Hoy vengo con suerte 🍀', '¡Venga, que empiece la partida! 🃏', 'Yo hoy no pago ni una raya, avisadas estáis 😌'],
   coge: ['Gracias, {p}, me venía de perlas 😘', '¡Uy, qué bien! Esa me la quedo', 'Mmm… esta me gusta 🤭', 'Tú tira, {p}, tú tira, que yo recojo 😏', '¡Justo la que buscaba! 😍'],
   cogeTuya: ['Gracias, {h}, me venía de perlas 😘', '{h}, qué generosa estás hoy 🤭', '¡Ay, {h}, que me la has puesto a huevo! 😂', 'Esa no la tenías que haber tirado, {h} 😏'],
-  figura: ['Ahí va un rey, que pesa mucho 👑', 'Fuera figuras, que suman mucho', 'Toma, para quien la quiera 😅', 'Esa no me sirve ni para abanicarme 🪭'],
+  figura: ['Ahí va {c}, que pesa mucho', 'Fuera figuras, que suman mucho', 'Toma {c}, para quien le haga falta 😅', 'Esa no me sirve ni para abanicarme 🪭'],
   cierra: ['¡Cierro! A contar, chicas 😎', '¡Hala, cerrado! 😏', 'Lo siento, guapas, pero cierro 💅', '¡Cierre al canto! 🎺', '¡A contar puntitos! 🧮'],
   menos10: ['¡Menos diez! Toma ya 💃', '¡Todo ligado! Aprended, aprended 😌', '¡Menos diez! ¿Quién da más? 😎'],
   chinchon: ['¡¡Chinchón!! 😱🎉', '¡No me lo puedo creer! ¡CHINCHÓN! 🥳'],
@@ -1258,11 +1258,12 @@ const FRASES = {
   farol: ['Uy, qué malas 😮‍💨', 'Hoy no me entra ni una…', 'Madre mía, qué cartas me dais 🙄', 'Esta mano la pierdo, ya veréis', 'No ligo nada, ¡nada!', 'Yo con estas cartas me voy a casa 😩', 'Ay, qué desastre de mano…', 'Pues yo voy fatal, para que lo sepáis', 'Qué rachita llevo, hija… 😔', 'Ni una pareja, os lo juro'],
   cierraFarol: ['¿Yo dije que iba mal? ¡Cierro! 😇', 'Uy, mira, ha entrado… ¡cierro! 🤭', 'Ji, ji… ¡cierro! 🤫', 'Pues al final… ¡cierro! 😏', 'Milagro, chicas: ¡cierro! 🙏'],
   pillada: ['¡Anda que tus cartas malas, {p}! 🙄', '¡Mentirosa! ¿No decías que ibas fatal? 😂', 'Ya decía yo que tanto quejarse… 🤨', '¡Esta siempre igual, llorando y cerrando! 😤', 'La próxima vez no me lo creo, {p} 😒', '¡Qué cuentista eres, {p}! 😂', '{p}, a ti no te vuelvo a creer en la vida 🙅‍♀️'],
-  prisa: ['¿Piensas tirar hoy, {h}? ☕', '{h}, que se enfría el café ☕', 'Venga, {h}, que nos hacemos mayores 😅', 'Piénsatelo, piénsatelo… 🥱', '{h}, ¿te has dormido? 😴']
+  prisa: ['¿Quién juga 😮‍💨?', '¿Quién juga 😮‍💨?', '¿Piensas tirar hoy, {h}? ☕', '{h}, que se enfría el café ☕', 'Venga, {h}, que nos hacemos mayores 😅', 'Piénsatelo, piénsatelo… 🥱', '{h}, ¿te has dormido? 😴']
 };
+FRASES.quienJuega = ['¿Quién juga 😮‍💨?'];
 FRASES.rayaOtra = FRASES.rayaTuya.map(f => f.replace(/\{h\}/g, '{p}'));
 FRASES.otraCierra = FRASES.tuCierras.map(f => f.replace(/\{h\}/g, '{p}'));
-const PROB = { rayaOtra: .85, otraCierra: .8, farol: 1, cierraFarol: 1, pillada: 1, inicio: .9, coge: .45, cogeTuya: .7, figura: .15, cierra: 1, menos10: 1, chinchon: 1, tuCierras: .8, raya: .8, rayaTuya: .85, gana: .5, cerca: .45, prisa: 1 };
+const PROB = { quienJuega: 1, rayaOtra: .85, otraCierra: .8, farol: 1, cierraFarol: 1, pillada: 1, inicio: .9, coge: .45, cogeTuya: .7, figura: .15, cierra: 1, menos10: 1, chinchon: 1, tuCierras: .8, raya: .8, rayaTuya: .85, gana: .5, cerca: .45, prisa: 1 };
 let ultimaFrase = {}, tUltBocadillo = 0;
 function rivalesActivos() { return activos().filter(i => i !== YO && !G.jugadores[i].remoto); }
 function decir(i, tipo, vars = {}, forzar) {
@@ -1278,7 +1279,8 @@ function decir(i, tipo, vars = {}, forzar) {
   let f = lista[Math.floor(Math.random() * lista.length)];
   ultimaFrase[tipo] = f;
   const h = G.jugadores[YO].nombre;
-  f = f.replace(/\{h\}/g, h).replace(/\{p\}/g, vars.p || h);
+  f = f.replace(/\{h\}/g, h).replace(/\{p\}/g, vars.p || h).replace(/\{c\}/g, vars.c || 'esta');
+  if (vars.rey && /pesa mucho$/.test(f)) f += ' 👑';
   tUltBocadillo = ahora;
   if (ONLINE && ONLINE.rol === 'anfitrion') pendEv.push({ t: 'dice', i, f });
   return bocadillo(i, f);
@@ -1558,7 +1560,8 @@ function avanzar() {
   if (G.jugadores[G.turno].humano) {
     if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); vibrar('turno'); }
     else mensaje('Arrastra al montón la carta que tiras', true);
-    setTimeout(() => { if (t === token && miTurno()) alguna('prisa', {}, true); }, 30000);
+    setTimeout(() => { if (t === token && miTurno()) alguna('quienJuega', {}, true); }, 20000);
+    setTimeout(() => { if (t === token && miTurno()) alguna('prisa', {}, true); }, 40000);
     return;
   }
   setTimeout(() => { if (t === token) turnoIA(t); }, ESPERA() * 0.6);
@@ -1599,7 +1602,7 @@ async function turnoIA(t) {
   await volar(avatarDe(i), cartaMonton(), htmlCarta(d.carta), VUELO()); if (t !== token) return;
   tirar(i, d.carta.id); G.ultimoTira = i;
   if (ONLINE) pendEv.push({ t: 'tira', i, carta: d.carta });
-  if (!d.carta.j && d.carta.r >= 10) decir(i, 'figura');
+  if (!d.carta.j && d.carta.r >= 10) decir(i, 'figura', { c: nombreCarta(d.carta), rey: d.carta.r === 12 });
   else if (PREF.charla) {
     const sueltos = analizar(p.mano).muertos, mult = PREF.charla === 1 ? 0.5 : 1;
     const cerca = sueltos <= S.maxPuntos + 6;           // casi lo tiene: farol
@@ -2067,8 +2070,10 @@ function pubOnline(evs = [], extra = {}) {
   red.publicar(c, limpiar(Object.assign({ publico: P, eventos: ONLINE.eventos }, extra))).catch(e => console.warn('publicar', e));
 }
 let tRemoto = null;
+let tQuien = null;
 function esperarRemoto(t) {
-  clearTimeout(tRemoto);
+  clearTimeout(tRemoto); clearTimeout(tQuien);
+  tQuien = setTimeout(() => { if (t === token && G && !G.terminada && G.jugadores[G.turno].remoto) alguna('quienJuega', {}, true); }, 20000);
   tRemoto = setTimeout(() => {
     if (t !== token || !G || G.terminada) return;
     const p = G.jugadores[G.turno]; if (!p.remoto) return;
