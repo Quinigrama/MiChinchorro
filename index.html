@@ -195,6 +195,12 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .invita{background:linear-gradient(135deg,#f3c64b,#e0a52a);color:#3a2600;border-radius:16px;padding:12px 14px;margin-bottom:12px;font-weight:800;text-align:center;line-height:1.35}
 .compartir{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .compartir a,.compartir button{display:block;text-align:center;padding:10px;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-weight:800;text-decoration:none;border:0;font-size:15px}
+.inpnom{width:100%;padding:12px 14px;border-radius:14px;border:0;font-size:18px;font-weight:700}
+.mesaFila{display:flex;gap:8px;margin-bottom:8px}
+.mesaAbrir{flex:1;text-align:left;background:rgba(0,0,0,.25);color:#fff;border:0;border-radius:14px;padding:10px 12px;font-size:17px;line-height:1.3}
+.mesaAbrir small{display:block;font-size:13px;font-weight:600;opacity:.9}
+.mesaCod{font-size:12px;letter-spacing:2px;color:var(--oro);font-weight:800;margin-left:4px}
+.mesaQuitar{width:44px;border:0;border-radius:14px;background:rgba(0,0,0,.25);color:#fff;font-size:18px}
 .inpcod{width:100%;padding:14px;border-radius:14px;border:0;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;text-transform:uppercase}
 .fotowrap{position:relative;display:block;width:100%;height:100%}
 .fotowrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
@@ -1492,8 +1498,10 @@ function continuar() {
   pintar(); avanzar();
 }
 $('bSalir').onclick = () => {
-  if (ONLINE) return ventana(`<h2>¿Salir de la mesa?</h2><div class="sub">${ONLINE.rol === 'anfitrion' ? 'La mesa se cerrará para todas.' : 'Mientras no estés, el ordenador jugará por ti.'}</div>`,
-    [{ t: 'Salir', f: () => { if (ONLINE.rol === 'anfitrion') pubOnline([], { estado: 'fin', cancelada: true }); salirOnline(true); } }, { t: 'Seguir jugando', clase: 'no' }]);
+  if (ONLINE && ONLINE.rol === 'anfitrion') return ventana(`<h2>¿Dejarlo por hoy?</h2><div class="sub">Si pausas, la partida se guarda y la seguís otro día desde 🗂️ Mis mesas.</div>`,
+    [{ t: '⏸ Pausar la partida', f: pausarMesa }, { t: '🚪 Cerrar la mesa', clase: 'no', f: () => confirmarCerrar(ONLINE.codigo, ONLINE.nombre) }, { t: 'Seguir jugando', clase: 'no' }]);
+  if (ONLINE) return ventana(`<h2>¿Salir de la mesa?</h2><div class="sub">Mientras no estés, la app jugará por ti. Puedes volver desde 🗂️ Mis mesas.</div>`,
+    [{ t: 'Salir', f: () => salirOnline(true) }, { t: 'Seguir jugando', clase: 'no' }]);
   ventana('<h2>¿Salir?</h2><div class="sub">La partida se queda guardada y puedes seguirla luego.</div>',
     [{ t: 'Salir al inicio', f: () => { token++; ir('inicio'); } }, { t: 'Seguir jugando', clase: 'no' }]);
 };
@@ -1946,8 +1954,8 @@ function trasResultado(res) {
     mensaje(`Esperando a que ${ONLINE.nombreAnf} reparta… 🃏`);
     return;
   }
+  if (G.terminada) return finPartida();   // (sin tocar la fase: las invitadas aún tienen que ver el resultado)
   G.fase = 'robar';
-  if (G.terminada) return finPartida();
   if (yo.fuera && activos().length > 1) { simularHastaFinal(); return finPartida(); }
   if (f && f.raya) aviso(`Te apuntas una raya ✏️ y vuelves con ${yo.puntos} puntos`);
   guardar();
@@ -1972,9 +1980,10 @@ function finPartida(titulo) {
   h += `<div class="sub">${neto >= 0 ? 'Ganas' : 'Pierdes'} <b>${euros(Math.abs(neto))}</b> · Monedero: <b>${euros(CART.saldo)}</b></div>`;
   h += G.jugadores.map(p => `<div class="fila"><div class="top"><span class="conava">${ava(p, 'peq')}${p === g ? '🏆 ' : ''}${p.nombre}</span><span class="suma">${p === g ? pts(p.puntos) + (p.rayas ? ' · ' + p.rayas + (p.rayas === 1 ? ' raya' : ' rayas') : '') : (p.rayas === 1 ? '1 raya' : p.rayas + ' rayas') + ' · ' + euros(p.rayas * S.raya)}</span></div></div>`).join('');
   if (ONLINE) {
-    if (ONLINE.rol === 'anfitrion') pubOnline([{ t: 'fin' }], { estado: 'fin' });
+    if (ONLINE.rol === 'anfitrion') { pubOnline([{ t: 'fin' }], { estado: 'fin' }); guardarNube(true); }
     const yaOnline = ONLINE; salirOnline(false);
-    return ventana(h, [{ t: 'Al inicio', f: () => ir('inicio') }]);
+    if (yaOnline.rol === 'anfitrion') return ventana(h, [{ t: '🔁 Otra partida en esta mesa', f: () => nuevaRonda(yaOnline.codigo) }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
+    return ventana(h, [{ t: '🪑 Seguir en la mesa', f: () => abrirMesa(yaOnline.codigo) }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
   }
   ventana(h, [{ t: 'Otra partida', f: empezarPartida }, { t: 'Al inicio', clase: 'no', f: () => ir('inicio') }]);
 }
@@ -2048,6 +2057,11 @@ const RED_LOCAL = {
   async mano(c, uid, cartas) { this._set(this._k('mano', c, uid), { cartas }); },
   escucharMano(c, uid, cb) { const k = this._k('mano', c, uid); return this._on(k, () => { const v = this._get(k); if (v) cb(v.cartas); }); },
   async accion(c, d) { this._set(this._k('acc', c) + '/' + Date.now() + Math.random(), d); },
+  async misMesas(uid) { const l = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && /^red:mesa\/[A-Z]{4}$/.test(k)) { const d = this._get(k); if (d && (d.miembros || []).includes(uid)) l.push(Object.assign({ codigo: k.slice(-4) }, d)); } } return l; },
+  async guardarPriv(c, d) { localStorage.setItem(this._k('priv', c), JSON.stringify(d)); },
+  async leerPriv(c) { return this._get(this._k('priv', c)); },
+  async levantar(c, uid) { localStorage.removeItem(this._k('sent', c, uid)); this._fire(this._k('sent', c) + '/'); },
+  async borrarMesa(c) { for (const k of Object.keys(localStorage)) if (k.startsWith('red:') && k.split('/')[1] === c) localStorage.removeItem(k); this._fire(this._k('mesa', c)); },
   escucharAcciones(c, cb) { const pref = this._k('acc', c) + '/'; return this._on(pref, () => { const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(pref)) ks.push(k); } ks.sort().forEach(k => { const v = this._get(k); localStorage.removeItem(k); if (v) cb(v); }); }); }
 };
 
@@ -2066,18 +2080,25 @@ function reglasMesa() {
 function pintarOnline(html) { $('onlineCuerpo').innerHTML = html; }
 $('bVolverMesa').onclick = () => volverMesa();
 $('bOnline').onclick = () => { if (!miUid()) return aviso('Entra antes con Google ☁️'); ir('online'); pantallaOnline(); };
-$('bVolverOnline').onclick = () => { if (ONLINE && ONLINE.rol === 'anfitrion') RED().publicar(ONLINE.codigo, { estado: 'fin', cancelada: true }).catch(() => {}); salirOnline(true); };
+$('bVolverOnline').onclick = () => {
+  if (ONLINE && !ONLINE.empezada) { salirOnline(false); ir('online'); return pantallaOnline(); }   // de la sala a Mis mesas (la mesa sigue abierta)
+  salirOnline(true);
+};
 function pantallaOnline() {
   const logeado = !!miUid(), inv = INVITA;
   pintarOnline(`${inv ? `<div class="invita">🃏 ¡Te han invitado a la mesa <span style="letter-spacing:3px">${inv}</span>!<br><small style="font-weight:600">${logeado ? 'Pulsa «Sentarme» y a jugar' : 'Primero entra con Google y luego siéntate'}</small></div>` : ''}
+    ${logeado && !inv ? `<div class="grupo"><h3>🗂️ Mis mesas</h3><div id="listaMesas"><div class="nota">Mirando tus mesas… ⏳</div></div></div>` : ''}
     <div class="grupo"><h3>Sentarme en una mesa</h3><input class="inpcod" id="inpCod" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" value="${inv || ''}">
       ${logeado ? '<button class="grande" id="bUnirme" style="width:100%;margin-top:10px">🔑 Sentarme</button>'
         : '<button class="grande" id="bEntrarSentar" style="width:100%;margin-top:10px">☁️ Entrar con Google</button>'}</div>
-    ${logeado ? `<div class="grupo"><h3>Crear una mesa</h3><div class="nota" style="margin-bottom:10px">Te dará un código y un enlace para invitar a las demás. Los huecos los ocupan tus rivales de siempre (${esc(rivalesElegidos().slice(0, PREF.jugadores - 1).join(', '))}).</div>
+    ${logeado ? `<div class="grupo"><h3>Crear una mesa nueva</h3>
+      <input class="inpnom" id="inpNomMesa" maxlength="24" placeholder="Nombre: Con mamá, Primos…" autocomplete="off">
+      <div class="nota" style="margin:8px 0 10px">Te dará un código y un enlace para invitar. La mesa se queda guardada para jugar otros días. Los huecos los ocupan tus rivales de siempre (${esc(rivalesElegidos().slice(0, PREF.jugadores - 1).join(', '))}).</div>
       <button class="grande" id="bCrearMesa" style="width:100%">➕ Crear mesa de ${PREF.jugadores}</button></div>` : ''}`);
   if (logeado) {
-    $('bCrearMesa').onclick = () => { INVITA = null; crearMesa(); };
+    $('bCrearMesa').onclick = () => { INVITA = null; crearMesa(($('inpNomMesa').value || '').trim()); };
     $('bUnirme').onclick = () => { const c = ($('inpCod').value || '').trim().toUpperCase(); if (c === INVITA) INVITA = null; unirme(c); };
+    if (!inv) pintarMisMesas();
   } else {
     $('bEntrarSentar').onclick = async () => {
       if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
@@ -2085,6 +2106,88 @@ function pantallaOnline() {
       catch (e) { aviso('No se pudo entrar. ¿Hay internet?'); }
     };
   }
+}
+/* ---------- Mis mesas ---------- */
+const DIAS_CADUCA = 90;
+const misCodigos = () => LS.get('mc-mismesas', []);
+function recordarMesa(c) { const l = misCodigos().filter(x => x !== c); l.unshift(c); LS.set('mc-mismesas', l.slice(0, 40)); LS.set('mc-ocultas', LS.get('mc-ocultas', []).filter(x => x !== c)); }
+function olvidarMesa(c) { LS.set('mc-mismesas', misCodigos().filter(x => x !== c)); }
+function haceCuanto(t) {
+  if (!t) return '';
+  const d = Math.floor((Date.now() - t) / 864e5);
+  if (d <= 0) return new Date(t).toDateString() === new Date().toDateString() ? 'hoy' : 'ayer';
+  return d === 1 ? 'ayer' : `hace ${d} días`;
+}
+function nombreMesa(m) { return (m && m.nombre) || `Mesa de ${(m && m.nombreAnf) || '…'}`; }
+const ESTADO_MESA = { espera: '🪑 Esperando', jugando: '▶ Jugando', pausa: '⏸ En pausa', fin: '🏁 Terminada' };
+async function pintarMisMesas() {
+  const caja = $('listaMesas'); if (!caja) return;
+  const red = RED(), uid = miUid(); if (!red) { caja.innerHTML = '<div class="nota">Sin conexión ahora mismo 📵</div>'; return; }
+  let lista = [];
+  try { lista = await red.misMesas(uid); } catch (e) { console.warn('misMesas', e); }
+  const vistas = new Set(lista.map(m => m.codigo));
+  for (const c of misCodigos()) if (!vistas.has(c)) { try { const m = await red.leer(c); if (m) lista.push(Object.assign({ codigo: c }, m)); else olvidarMesa(c); } catch (e) {} }
+  const ocultas = new Set(LS.get('mc-ocultas', []));
+  // limpieza: las mesas mías sin jugar en 90 días se cierran solas
+  const ahora = Date.now();
+  for (const m of lista.slice()) {
+    const act = m.actividad || m.creada || 0;
+    if (m.anfitrion === uid && act && ahora - act > DIAS_CADUCA * 864e5) { red.borrarMesa(m.codigo).catch(() => {}); lista.splice(lista.indexOf(m), 1); }
+  }
+  lista = lista.filter(m => !ocultas.has(m.codigo)).sort((a, b) => (b.actividad || b.creada || 0) - (a.actividad || a.creada || 0));
+  if (!$('listaMesas')) return;
+  if (!lista.length) { $('listaMesas').innerHTML = '<div class="nota">Aún no tienes mesas. Crea una abajo o siéntate con un código 👇</div>'; return; }
+  $('listaMesas').innerHTML = lista.map(m => {
+    const mia = m.anfitrion === uid, act = m.actividad || m.creada || 0;
+    const quedan = DIAS_CADUCA - Math.floor((ahora - act) / 864e5);
+    const gente = m.publico && m.publico.jugadores ? m.publico.jugadores.map(j => j.nombre) : [m.nombreAnf];
+    return `<div class="mesaFila" data-c="${m.codigo}">
+      <button class="mesaAbrir" data-c="${m.codigo}"><b>${esc(nombreMesa(m))}</b> <span class="mesaCod">${m.codigo}</span>
+        <small>${ESTADO_MESA[m.cancelada ? 'fin' : m.estado] || ''} · ${mia ? 'tuya' : 'de ' + esc(m.nombreAnf || '…')} · ${haceCuanto(act)}</small>
+        <small style="opacity:.75">${esc(gente.filter(Boolean).join(', '))}</small>
+        ${mia && quedan <= 15 ? `<small style="color:var(--oro)">⏳ Se cerrará en ${Math.max(1, quedan)} días si no jugáis</small>` : ''}</button>
+      <button class="mesaQuitar" data-c="${m.codigo}" data-mia="${mia ? 1 : ''}" data-n="${esc(nombreMesa(m))}" aria-label="${mia ? 'Cerrar mesa' : 'Quitar de mi lista'}">${mia ? '🗑' : '✕'}</button></div>`;
+  }).join('');
+  $('listaMesas').querySelectorAll('.mesaAbrir').forEach(b => b.onclick = () => abrirMesa(b.dataset.c));
+  $('listaMesas').querySelectorAll('.mesaQuitar').forEach(b => b.onclick = () => b.dataset.mia ? confirmarCerrar(b.dataset.c, b.dataset.n) : quitarMesa(b.dataset.c, b.dataset.n));
+}
+function confirmarCerrar(c, nombre) {
+  ventana(`<h2>¿Cerrar la mesa?</h2><div class="sub">«${esc(nombre || c)}» se borrará para todos y no se podrá seguir la partida.</div>`,
+    [{ t: '🗑 Cerrar mesa', f: async () => {
+      const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
+      const enEsta = ONLINE && ONLINE.codigo === c;
+      if (enEsta) { salirOnline(false); token++; $('velo').classList.add('oculto'); }
+      try { await red.borrarMesa(c); olvidarMesa(c); aviso('Mesa cerrada 🗑'); } catch (e) { aviso('No se pudo cerrar la mesa 📵'); }
+      if (enEsta || !$('online').classList.contains('oculto')) { ir('online'); pantallaOnline(); }
+    } }, { t: 'No', clase: 'no' }]);
+}
+function quitarMesa(c, nombre) {
+  ventana(`<h2>¿Quitar de tu lista?</h2><div class="sub">Dejarás de ver «${esc(nombre || c)}». Podrás volver a sentarte con el código ${c}.</div>`,
+    [{ t: '✕ Quitar', f: async () => {
+      olvidarMesa(c); LS.set('mc-ocultas', LS.get('mc-ocultas', []).concat(c).slice(-60));
+      try { await RED().levantar(c, miUid()); } catch (e) {}
+      pantallaOnline();
+    } }, { t: 'No', clase: 'no' }]);
+}
+async function abrirMesa(c) {
+  try { if (window.Nube && !window.Nube.red && !window.__redLocal) await window.Nube.cargar(); } catch (e) {}
+  if (!miUid()) return aviso('Entra antes con Google ☁️');
+  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
+  let m = null;
+  try { m = await red.leer(c); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
+  if (!m || m.cancelada) { olvidarMesa(c); if (LS.get('mc-online', {}) && (LS.get('mc-online', {}) || {}).codigo === c) LS.del('mc-online'); if (!$('online').classList.contains('oculto')) pantallaOnline(); return aviso('Esa mesa ya no existe'); }
+  const uid = miUid(), mia = m.anfitrion === uid;
+  const estoy = !!(m.publico && m.publico.jugadores && m.publico.jugadores.some(j => j.uid === uid));
+  if (mia) {
+    if (m.estado === 'espera') return abrirSala(c, m);
+    if (m.estado === 'fin') return nuevaRonda(c, m);
+    return reanudarMesa(c, m);
+  }
+  recordarMesa(c);
+  if (m.estado === 'pausa') return aviso(`⏸ En pausa: espera a que ${m.nombreAnf || 'la anfitriona'} la siga`);
+  if (m.estado === 'jugando') return estoy ? entrarInvitado(c, m, true) : aviso('Esa partida ya ha empezado sin ti 😅 Espera a la siguiente');
+  try { await red.sentar(c, uid, limpiar({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
+  entrarInvitado(c, m, false);
 }
 /* ---------- Invitaciones: enlace ?mesa=CÓDIGO ---------- */
 function atenderInvitacion() {
@@ -2118,7 +2221,8 @@ function volverSolo() {
 }
 function enlaceMesa(c) { return location.origin + location.pathname.replace(/index\.html$/, '') + '?mesa=' + c; }
 function textoInvitacion(c) {
-  return `🃏 ¡${PREF.nombre || 'Te'} ${PREF.nombre ? 'te invita' : 'invitan'} a una partida de Mi Chinchorro!\nMesa: ${c}\nEntra aquí 👉 ${enlaceMesa(c)}`;
+  const n = ONLINE && ONLINE.nombre ? ` «${ONLINE.nombre}»` : '';
+  return `🃏 ¡${PREF.nombre || 'Te'} ${PREF.nombre ? 'te invita' : 'invitan'} a la mesa${n} de Mi Chinchorro!\nCódigo: ${c}\nEntra aquí 👉 ${enlaceMesa(c)}`;
 }
 async function invitar() {
   const c = ONLINE && ONLINE.codigo; if (!c) return;
@@ -2136,23 +2240,42 @@ async function invitar() {
     <button id="bCopiarInv">📋 Copiar</button></div>`;
   $('bCopiarInv').onclick = async () => { try { await navigator.clipboard.writeText(txt); aviso('Invitación copiada 📋'); } catch (e) { aviso('No se pudo copiar'); } };
 }
-async function crearMesa() {
+async function crearMesa(nombre) {
   const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
   const uid = miUid();
-  let codigo = null;
+  let codigo = null, datos = null;
   for (let k = 0; k < 6 && !codigo; k++) {
     const c = Array.from({ length: 4 }, () => LETRAS_COD[Math.floor(Math.random() * LETRAS_COD.length)]).join('');
-    try { await red.crear(c, limpiar({ anfitrion: uid, nombreAnf: PREF.nombre || 'Anfitriona', avatarAnf: miAvatar(), estado: 'espera', reglas: reglasMesa(), creada: Date.now() })); codigo = c; } catch (e) { if (!/existe|exists|permission/i.test(String(e && (e.code || e.message)))) { aviso('No se pudo crear la mesa 📵'); return; } }
+    datos = limpiar({ anfitrion: uid, nombreAnf: PREF.nombre || 'Anfitriona', avatarAnf: miAvatar(), nombre: (nombre || '').slice(0, 24), miembros: [uid], estado: 'espera', reglas: reglasMesa(), creada: Date.now(), actividad: Date.now() });
+    try { await red.crear(c, datos); codigo = c; } catch (e) { if (!/existe|exists|permission/i.test(String(e && (e.code || e.message)))) { aviso('No se pudo crear la mesa 📵'); return; } }
   }
   if (!codigo) return aviso('No se pudo crear la mesa, prueba otra vez');
-  abrirSala(codigo);
+  abrirSala(codigo, datos);
 }
-function abrirSala(codigo) {
+function abrirSala(codigo, m) {
   const red = RED(), uid = miUid();
-  ONLINE = { rol: 'anfitrion', codigo, uid, sentados: [], unsubs: [], nombreAnf: PREF.nombre };
+  if (ONLINE) salirOnline(false);
+  ONLINE = { rol: 'anfitrion', codigo, uid, sentados: [], unsubs: [], nombreAnf: PREF.nombre, nombre: (m && m.nombre) || '', miembros: ((m && m.miembros) || [uid]).slice() };
+  recordarMesa(codigo);
   LS.set('mc-online', { rol: 'anfitrion', codigo, espera: true, nombreAnf: PREF.nombre, t: Date.now() });
-  ONLINE.unsubs.push(red.escucharSentados(codigo, l => { if (!ONLINE) return; ONLINE.sentados = l.filter(x => x.uid !== uid).sort((a, b) => (a.t || 0) - (b.t || 0)); salaAnfitrion(); }));
+  ONLINE.unsubs.push(red.escucharSentados(codigo, l => {
+    if (!ONLINE || ONLINE.codigo !== codigo) return;
+    ONLINE.sentados = l.filter(x => x.uid !== uid).sort((a, b) => (a.t || 0) - (b.t || 0));
+    const nuevos = ONLINE.sentados.map(x => x.uid).filter(u => !ONLINE.miembros.includes(u));
+    if (nuevos.length) { ONLINE.miembros = ONLINE.miembros.concat(nuevos); red.publicar(codigo, { miembros: ONLINE.miembros, actividad: Date.now() }).catch(() => {}); }
+    salaAnfitrion();
+  }));
   ir('online'); salaAnfitrion();
+}
+async function nuevaRonda(codigo, m) {
+  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
+  try { m = m || await red.leer(codigo); } catch (e) {}
+  if (!m) return aviso('Esa mesa ya no existe');
+  const otros = new Set((m.miembros || []).concat((m.publico && m.publico.jugadores || []).map(j => j.uid)).filter(u => u && u !== miUid()));
+  await Promise.all([...otros].map(u => red.mano(codigo, u, []).catch(() => {})));
+  await red.publicar(codigo, { estado: 'espera', publico: null, eventos: [], actividad: Date.now() }).catch(() => {});
+  red.guardarPriv(codigo, { json: '' }).catch(() => {});
+  abrirSala(codigo, m);
 }
 function asientosMesa() {
   const n = PREF.jugadores, hum = ONLINE.sentados.slice(0, n - 1);
@@ -2163,16 +2286,18 @@ function asientosMesa() {
 function salaAnfitrion() {
   if (!ONLINE || ONLINE.rol !== 'anfitrion' || ONLINE.empezada) return;
   const { hum, bots } = asientosMesa(), extra = ONLINE.sentados.length - hum.length;
-  pintarOnline(`<div class="grupo"><h3>Código de tu mesa</h3><div class="codigo">${ONLINE.codigo}</div>
+  pintarOnline(`<div class="grupo"><h3>${ONLINE.nombre ? esc(ONLINE.nombre) + ' · código' : 'Código de tu mesa'}</h3><div class="codigo">${ONLINE.codigo}</div>
       <button class="grande" id="bInvitar" style="width:100%;margin-top:6px">📨 Invitar</button><div id="cajaCompartir"></div>
       <div class="nota" style="text-align:center;margin-top:8px">Mándales el enlace, o el código: en su móvil, 🌍 Jugar online → Sentarme.</div></div>
     <div class="grupo"><h3>En la mesa</h3>
       <div class="sentado">${avatarSVGmini(miAvatar())}${esc(PREF.nombre || 'Tú')}<small>tú · repartes</small></div>
-      ${hum.map(h => `<div class="sentado">${avatarSVGmini(avatarSeguro(h.avatar))}${esc(h.nombre)}<small>📱 conectada</small></div>`).join('')}
+      ${hum.map(h => `<div class="sentado">${avatarSVGmini(avatarSeguro(h.avatar))}${esc(h.nombre)}<small>📱 sentada</small></div>`).join('')}
       ${bots.map(b => `<div class="sentado" style="opacity:.75">${avatarSVGmini(b)}${b}<small>🤖 la app</small></div>`).join('')}
       ${extra > 0 ? `<div class="nota">${extra} más esperando: no caben (sube el número de jugadores en Ajustes).</div>` : ''}
     </div>
-    <button class="grande" id="bEmpezarMesa" style="width:100%">▶ Empezar partida</button>`);
+    <button class="grande" id="bEmpezarMesa" style="width:100%">▶ Empezar partida</button>
+    <button class="secund" id="bMisMesas" style="width:100%;margin-top:10px">🗂️ Volver a Mis mesas</button>`);
+  $('bMisMesas').onclick = () => { salirOnline(false); pantallaOnline(); };
   $('bEmpezarMesa').onclick = empezarMesa;
   $('bInvitar').onclick = invitar;
 }
@@ -2191,7 +2316,7 @@ function empezarMesa() {
   CART.jugadas++; guardarCartera(); chinchonNeto = 0;
   ONLINE.eventos = []; ONLINE.seq = 0;
   ONLINE.unsubs.push(RED().escucharAcciones(ONLINE.codigo, a => onAccion(a)));
-  RED().publicar(ONLINE.codigo, { estado: 'jugando', reglas: reglasMesa() }).catch(() => {});
+  RED().publicar(ONLINE.codigo, { estado: 'jugando', reglas: reglasMesa(), actividad: Date.now() }).catch(() => {});
   ir('juego');
   empezarMano();
   setTimeout(() => alguna('inicio'), 700);
@@ -2207,8 +2332,49 @@ function pubOnline(evs = [], extra = {}) {
   };
   const red = RED(), c = ONLINE.codigo;
   G.jugadores.forEach(p => { if (p.remoto) { const k = p.mano.map(x => x.id).join(','); if (manosPub[p.uid] !== k) { manosPub[p.uid] = k; red.mano(c, p.uid, limpiar(p.mano)).catch(e => console.warn('mano', e)); } } });
-  red.publicar(c, limpiar(Object.assign({ publico: P, eventos: ONLINE.eventos }, extra))).catch(e => console.warn('publicar', e));
-  if (!G.terminada) LS.set('mc-online', { rol: 'anfitrion', t: Date.now(), codigo: c, G, S, seq: ONLINE.seq, eventos: ONLINE.eventos, nombreAnf: ONLINE.nombreAnf, chinchonNeto });
+  red.publicar(c, limpiar(Object.assign({ publico: P, eventos: ONLINE.eventos, actividad: Date.now() }, extra))).catch(e => console.warn('publicar', e));
+  if (!G.terminada) LS.set('mc-online', { rol: 'anfitrion', t: Date.now(), codigo: c, G, S, seq: ONLINE.seq, eventos: ONLINE.eventos, nombreAnf: ONLINE.nombreAnf, nombre: ONLINE.nombre, miembros: ONLINE.miembros, chinchonNeto });
+  guardarNube(G.fase === 'resultado');
+}
+// Copia de la partida en la nube (solo la lee el anfitrión): así se puede seguir otro día y desde otro móvil
+let tNube = null;
+function guardarNube(ya) {
+  if (!ONLINE || ONLINE.rol !== 'anfitrion' || !G) return;
+  const c = ONLINE.codigo;
+  const hazlo = () => {
+    tNube = null; if (!ONLINE || ONLINE.codigo !== c || !G) return;
+    const red = RED(); if (!red) return;
+    red.guardarPriv(c, { json: JSON.stringify({ codigo: c, G: Object.assign({}, G, { anim: null }), S, seq: ONLINE.seq, eventos: ONLINE.eventos, nombreAnf: ONLINE.nombreAnf, chinchonNeto }), t: Date.now() }).catch(e => console.warn('priv', e));
+  };
+  clearTimeout(tNube);
+  if (ya) hazlo(); else tNube = setTimeout(hazlo, 4000);
+}
+function pausarMesa() {
+  if (!ONLINE || ONLINE.rol !== 'anfitrion') return;
+  clearTimeout(tNube); guardarNube(true);
+  RED().publicar(ONLINE.codigo, { estado: 'pausa', actividad: Date.now() }).catch(() => {});
+  aviso('⏸ Partida en pausa. Seguidla cuando queráis');
+  salirOnline(false); token++; $('velo').classList.add('oculto'); ir('online'); pantallaOnline();
+}
+async function reanudarMesa(c, m) {
+  const red = RED();
+  const local = LS.get('mc-online', null);
+  let nube = null;
+  try { const p = await red.leerPriv(c); if (p && p.json) nube = JSON.parse(p.json); } catch (e) { console.warn('leerPriv', e); }
+  const loc = local && local.codigo === c && local.G ? local : null;
+  const g = loc && (!nube || (loc.seq || 0) >= (nube.seq || 0)) ? loc : nube;
+  if (!g || !g.G) return aviso('No encuentro la partida guardada 🤔');
+  if (ONLINE) salirOnline(false);
+  Object.keys(S).forEach(k => delete S[k]); Object.assign(S, g.S);
+  G = g.G; G.anim = null; YO = 0; chinchonNeto = g.chinchonNeto || 0;
+  ONLINE = { rol: 'anfitrion', codigo: c, uid: miUid(), sentados: [], unsubs: [], nombreAnf: g.nombreAnf || PREF.nombre, nombre: (m && m.nombre) || '', miembros: ((m && m.miembros) || [miUid()]).slice(), eventos: g.eventos || [], seq: g.seq || 0, empezada: true };
+  manosPub = {}; pendEv = [];
+  recordarMesa(c);
+  ONLINE.unsubs.push(red.escucharAcciones(c, a => onAccion(a)));
+  red.publicar(c, { estado: 'jugando', actividad: Date.now() }).catch(() => {});
+  ir('juego'); aviso(m && m.estado === 'pausa' ? '▶ ¡Seguimos la partida!' : '¡Mesa recuperada! 🙌');
+  if (G.fase === 'resultado' && G.res) { pintar(); pubOnline(); mostrarResultado(G.res); return; }
+  pubOnline(); avanzar();
 }
 let tRemoto = null;
 let tQuien = null;
@@ -2261,62 +2427,32 @@ async function onAccion(a) {
 /* ---- Volver a una mesa a medias ---- */
 async function volverMesa(guardada) {
   const d = guardada || LS.get('mc-online', null); if (!d) return;
-  try { if (window.Nube && !window.Nube.red) await window.Nube.cargar(); } catch (e) {}
-  if (!miUid()) return aviso('Entra antes con Google ☁️');
-  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
-  let m = null;
-  try { m = await red.leer(d.codigo); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
-  if (m && m.estado === 'espera') {
-    if (m.anfitrion === miUid()) { abrirSala(d.codigo); return aviso('¡De vuelta en tu mesa! 🙌'); }
-    return entrarInvitado(d.codigo, m, true);
-  }
-  if (!m || m.estado !== 'jugando') { LS.del('mc-online'); if (!$('inicio').classList.contains('oculto')) pintarInicio(); return aviso('Esa mesa ya terminó o se cerró'); }
-  if (d.rol === 'invitado' || m.anfitrion !== miUid()) return entrarInvitado(d.codigo, m, true);
-  // anfitrión: retomar desde lo guardado en este móvil
-  const g = d.G ? d : LS.get('mc-online', null);
-  if (!g || !g.G || g.codigo !== d.codigo) return aviso('Esta partida se guardó en otro móvil 📱');
-  Object.keys(S).forEach(k => delete S[k]); Object.assign(S, g.S);
-  G = g.G; G.anim = null; YO = 0; chinchonNeto = g.chinchonNeto || 0;
-  ONLINE = { rol: 'anfitrion', codigo: g.codigo, uid: miUid(), sentados: [], unsubs: [], nombreAnf: g.nombreAnf, eventos: g.eventos || [], seq: g.seq || 0, empezada: true };
-  manosPub = {}; pendEv = [];
-  ONLINE.unsubs.push(red.escucharAcciones(ONLINE.codigo, a => onAccion(a)));
-  ir('juego'); aviso('¡Mesa recuperada! 🙌');
-  if (G.fase === 'resultado' && G.res) { pintar(); pubOnline(); mostrarResultado(G.res); return; }
-  G.anim = null; if (G.fase !== 'tirar' || !G.jugadores[G.turno].humano) { /* sigue el turno donde estaba */ }
-  avanzar();
+  return abrirMesa(d.codigo);
 }
 
 /* ---- Invitado ---- */
 async function unirme(codigo) {
   if (!/^[A-Z]{4}$/.test(codigo)) return aviso('El código tiene 4 letras');
-  const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
-  let m = null;
-  try { m = await red.leer(codigo); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
-  if (!m) return aviso('No hay ninguna mesa con ese código 🤔');
-  const uid = miUid();
-  if (m.estado === 'jugando' && m.publico && m.publico.jugadores.some(j => j.uid === uid)) {
-    if (m.anfitrion === uid) return volverMesa({ rol: 'anfitrion', codigo });
-    return entrarInvitado(codigo, m, true);
-  }
-  if (m.estado !== 'espera') return aviso('Esa mesa ya ha empezado o se ha cerrado');
-  if (m.anfitrion === uid) { abrirSala(codigo); return aviso('Es tu mesa: aquí la tienes 🙌'); }
-  try { await red.sentar(codigo, uid, limpiar({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
-  entrarInvitado(codigo, m, false);
+  return abrirMesa(codigo);
 }
 function entrarInvitado(codigo, m, vuelta) {
   const red = RED(), uid = miUid();
   ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'la anfitriona', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false, vuelta };
   if (vuelta) aviso('¡De vuelta en la mesa! 🙌');
-  if (m.estado === 'espera') LS.set('mc-online', { rol: 'invitado', codigo, espera: true, nombreAnf: ONLINE.nombreAnf, t: Date.now() });
+  if (m.estado !== 'jugando') LS.set('mc-online', { rol: 'invitado', codigo, espera: true, nombreAnf: ONLINE.nombreAnf, t: Date.now() });
   ir('online');
-  pintarOnline(`<div class="grupo"><h3>Mesa ${codigo}</h3><div class="sentado">${avatarSVGmini(avatarSeguro(m.avatarAnf))}${esc(m.nombreAnf || '')}<small>reparte</small></div>
-    <div class="sub" style="margin-top:12px">¡Ya estás sentada! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'la anfitriona')} empiece la partida…</div></div>`);
+  pintarOnline(`<div class="grupo"><h3>${esc(nombreMesa(m))} · ${codigo}</h3><div class="sentado">${avatarSVGmini(avatarSeguro(m.avatarAnf))}${esc(m.nombreAnf || '')}<small>reparte</small></div>
+    <div class="sub" style="margin-top:12px">¡Ya estás sentada! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'la anfitriona')} empiece la partida…</div></div>
+    <button class="secund" id="bMisMesasInv" style="width:100%">🗂️ Volver a Mis mesas</button>`);
+  $('bMisMesasInv').onclick = () => { salirOnline(false); pantallaOnline(); };
   ONLINE.unsubs.push(red.escucharMano(codigo, uid, cartas => { if (!ONLINE) return; ONLINE.mano = cartas || []; manoRecibida(); }));
   ONLINE.unsubs.push(red.escuchar(codigo, d => onMesaInvitado(d)));
 }
 function onMesaInvitado(d) {
   if (!ONLINE || ONLINE.rol !== 'invitado') return;
-  if (!d) return;
+  if (!d) { ventana('<h2>Mesa cerrada</h2><div class="sub">Esta mesa ya no existe.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
+  if (d.estado === 'pausa') { ventana(`<h2>⏸ Partida en pausa</h2><div class="sub">${esc(ONLINE.nombreAnf)} la ha dejado para otro día. La seguiréis desde 🗂️ Mis mesas.</div>`, [{ t: 'Vale', f: () => { ir('online'); pantallaOnline(); } }]); salirOnline(false); return; }
+  if (!ONLINE.empezada && d.estado !== 'jugando') return;   // esperando a que empiece
   if (d.cancelada || (d.estado === 'fin' && !d.publico)) { ventana('<h2>Mesa cerrada</h2><div class="sub">La anfitriona ha cerrado la mesa.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
   if (!d.publico) return;
   if (!ONLINE.empezada) {
@@ -2534,6 +2670,23 @@ const red = {
   escucharSentados(c, cb) { return fb.fs.onSnapshot(fb.fs.collection(fb.db, 'mesas', c, 'sentados'), s => cb(s.docs.map(x => Object.assign({ uid: x.id }, x.data()))), e => console.warn('sentados', e)); },
   async mano(c, uid, cartas) { await fb.fs.setDoc(fb.fs.doc(fb.db, 'mesas', c, 'manos', uid), { cartas }); },
   escucharMano(c, uid, cb) { return fb.fs.onSnapshot(fb.fs.doc(fb.db, 'mesas', c, 'manos', uid), s => { if (s.exists()) cb(s.data().cartas); }, e => console.warn('mano', e)); },
+  async misMesas(uid) { const f = fb.fs, q = f.query(f.collection(fb.db, 'mesas'), f.where('miembros', 'array-contains', uid)); const s = await f.getDocs(q); return s.docs.map(x => Object.assign({ codigo: x.id }, x.data())); },
+  async guardarPriv(c, d) { await fb.fs.setDoc(fb.fs.doc(fb.db, 'mesas', c, 'privado', 'estado'), d); },
+  async leerPriv(c) { const s = await fb.fs.getDoc(fb.fs.doc(fb.db, 'mesas', c, 'privado', 'estado')); return s.exists() ? s.data() : null; },
+  async levantar(c, uid) { await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'mesas', c, 'sentados', uid)); },
+  async borrarMesa(c) {
+    const f = fb.fs, r = f.doc(fb.db, 'mesas', c), s = await f.getDoc(r); if (!s.exists()) return;
+    const m = s.data(), uids = new Set((m.miembros || []).concat((m.publico && m.publico.jugadores || []).map(j => j.uid).filter(Boolean)));
+    const borra = ref => f.deleteDoc(ref).catch(() => {});
+    const sent = await f.getDocs(f.collection(fb.db, 'mesas', c, 'sentados')).catch(() => null);
+    if (sent) sent.docs.forEach(x => uids.add(x.id));
+    const acc = await f.getDocs(f.collection(fb.db, 'mesas', c, 'acciones')).catch(() => null);
+    await Promise.all([borra(f.doc(fb.db, 'mesas', c, 'privado', 'estado'))]
+      .concat([...uids].map(u => borra(f.doc(fb.db, 'mesas', c, 'manos', u))))
+      .concat([...uids].map(u => borra(f.doc(fb.db, 'mesas', c, 'sentados', u))))
+      .concat(acc ? acc.docs.map(x => borra(x.ref)) : []));
+    await f.deleteDoc(r);
+  },
   async accion(c, d) { await fb.fs.addDoc(fb.fs.collection(fb.db, 'mesas', c, 'acciones'), d); },
   escucharAcciones(c, cb) { return fb.fs.onSnapshot(fb.fs.collection(fb.db, 'mesas', c, 'acciones'), s => { s.docChanges().forEach(ch => { if (ch.type === 'added') { cb(ch.doc.data()); fb.fs.deleteDoc(ch.doc.ref).catch(() => {}); } }); }, e => console.warn('acciones', e)); }
 };
