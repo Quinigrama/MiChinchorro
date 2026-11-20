@@ -1892,7 +1892,9 @@ function pintar(flash) {
   $('infoMano').innerHTML = ONLINE ? `Mano ${G.manoN} · <span style="color:var(--oro)">Mesa ${ONLINE.codigo}</span><br><small style="font-weight:500;opacity:.8">raya al pasar de ${S.limite}</small>` : `Mano ${G.manoN}<br><small style="font-weight:500;opacity:.8">raya al pasar de ${S.limite}</small>`;
   $('bote').textContent = '💰 ' + euros(G.bote);
   // rivales
-  $('rivales').innerHTML = G.jugadores.map((p, i) => i === YO ? '' : `
+  // en el orden en que juegan después de mí (en las mesas online, cada móvil gira la mesa desde su sitio)
+  const nJ = G.jugadores.length;
+  $('rivales').innerHTML = Array.from({ length: nJ - 1 }, (_, k) => (YO + 1 + k) % nJ).map(i => [G.jugadores[i], i]).map(([p, i]) => `
     <div class="rival ${(G.anim ? G.reparte : G.turno) === i && !G.terminada ? 'turno' : ''} ${p.fuera ? 'fuera' : ''}" data-i="${i}">
       <div class="rcab"><span class="avnv">${ava(p)}<span class="nv" title="${p.remoto ? 'Persona conectada' : NIVELES[p.nivel ?? S.nivel]}">${p.remoto ? '📱' : ICONIV[p.nivel ?? S.nivel]}</span></span><div class="rtxt"><div class="nom">${p.nombre}</div>
       <div class="pts">${p.fuera ? '❌ Fuera' : p.puntos + ' pts'}${rayitas(p)}</div></div></div>
