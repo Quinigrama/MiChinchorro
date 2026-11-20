@@ -962,8 +962,11 @@ const guardarCartera = () => LS.set('mc-cartera', CART);
 /* ---------- Dibujar cartas ---------- */
 function htmlCarta(c, extra = '') {
   if (!c) return '<div class="vacio"></div>';
+  if (c.j && PREF.naipes === 'castellana') return `<div class="carta foto comodin ${extra}" data-id="${c.id}" aria-label="Comodín"><img src="naipes-castellana/comodin.svg" alt="Comodín" draggable="false"></div>`;
   if (c.j) return `<div class="carta comodin ${extra}" data-id="${c.id}"><div class="jk">🃏<small>COMODÍN</small></div></div>`;
   const p = PALOS[c.s], fig = { 10: 'SOTA', 11: 'CABALLO', 12: 'REY' }[c.r];
+  if (PREF.naipes === 'castellana')
+    return `<div class="carta foto c-${p} ${extra}" data-id="${c.id}" aria-label="${nombreCarta(c)}"><img src="naipes-castellana/${String(c.r).padStart(2, '0')}${LETRA[c.s]}.svg" alt="" draggable="false">${PREF.indices ? `<span class="indice">${c.r}</span>` : ''}</div>`;
   if (PREF.naipes === 'clasicas')
     return `<div class="carta foto c-${p} ${extra}" data-id="${c.id}" aria-label="${nombreCarta(c)}"><img src="naipes/${String(c.r).padStart(2, '0')}${LETRA[c.s]}.jpg" alt="" draggable="false">${PREF.indices ? `<span class="indice">${c.r}</span>` : ''}</div>`;
   return `<div class="carta c-${p} ${fig ? 'fig' : ''} ${extra}" data-id="${c.id}" aria-label="${nombreCarta(c)}">
@@ -1053,7 +1056,7 @@ function pintarInicio() {
 const OPC = [
   { h: 'La partida' },
   { k: 'naipes', t: 'Naipes', vis: true },
-  { k: 'indices', t: 'Números grandes en los naipes clásicos', op: [[true, 'Sí'], [false, 'No']] },
+  { k: 'indices', t: 'Números grandes en los naipes (Clásicos y Castellana)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'jugadores', t: 'Número de jugadores', op: [[2, '2'], [3, '3'], [4, '4'], [5, '5']] },
   { k: 'baraja', t: 'Baraja', op: [[40, '40 cartas'], [48, '48 cartas (con 8 y 9)']] },
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
@@ -1118,7 +1121,7 @@ function pintarAjustes() {
       const muestra = [{ s: 0, r: 1 }, { s: 1, r: 12 }, { s: 2, r: 7 }];
       const opcion = (v, l) => { const g = PREF.naipes; PREF.naipes = v; const cs = muestra.map(c => htmlCarta(c)).join(''); PREF.naipes = g;
         return `<button data-k="naipes" data-v='"${v}"' aria-pressed="${PREF.naipes === v}" class="naipe"><span class="trio">${cs}</span>${l}</button>`; };
-      h += `<div class="seg">${opcion('clasicas', 'Clásicos')}${opcion('dibujadas', 'Dibujados')}</div></div>`;
+      h += `<div class="seg">${opcion('clasicas', 'Clásicos')}${opcion('castellana', 'Castellana')}${opcion('dibujadas', 'Sencillos')}</div></div>`;
       continue;
     }
     if (o.txt) h += `<input data-k="${o.k}" value="${String(PREF[o.k]).replace(/"/g, '&quot;')}">`;
