@@ -985,6 +985,8 @@ document.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => ir(b.datas
 
 function pedirPerfil() {
   const html = `<h2>¡Hola! 👋</h2>
+    ${NUBE_OK ? `<button id="perfGoogle" class="grande" style="width:100%;margin-bottom:6px">☁️ Entrar con Google</button>
+    <div id="perfGoogleNota" class="sub" style="font-size:14px;margin-bottom:12px">Para ver récords y jugar online. Puedes hacerlo luego.</div>` : ''}
     <div class="sub">¿Quién eres? Toca tu personaje…</div>
     <div class="soy">${NOMBRES_P.map(n => `<button class="soybtn" data-soy="${n}"><span class="avatar">${avatarSVG(n)}</span>${n}</button>`).join('')}</div>
     <div class="sub" style="margin-top:14px">…o escribe tu nombre</div>
@@ -992,8 +994,9 @@ function pedirPerfil() {
     <div id="perfAvCaja" class="oculto"><div class="sub">y elige tu avatar</div><div class="avatares" id="perfAv"></div></div>`;
   ventana(html, [{ t: '¡A jugar!', f: () => {
     PREF.nombre = ($('perfNombre').value || '').trim() || 'Yo';
-    if (!PREF.avatar || PERSONAJES[PREF.avatar]) PREF.avatar = `letra:${PREF.nombre[0].toUpperCase()}:#e07a3a`;
-    PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); pintarInicio();
+    if (!PREF.avatar || PERSONAJES[PREF.avatar]) PREF.avatar = PREF.fotoGoogle ? 'google' : `letra:${PREF.nombre[0].toUpperCase()}:#e07a3a`;
+    else if (/^letra:/.test(PREF.avatar)) PREF.avatar = PREF.avatar.replace(/^letra:[^:]*:/, `letra:${PREF.nombre[0].toUpperCase()}:`);
+    PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); pintarInicio(); subirNube();
   } }]);
   // un toque en un personaje: nombre y avatar de golpe
   document.querySelectorAll('.soybtn').forEach(b => b.onclick = () => {
@@ -1007,6 +1010,22 @@ function pedirPerfil() {
     const sel = miAvatar();
     $('perfAv').innerHTML = opcionesAvatar().filter(k => !PERSONAJES[k]).map(k => `<button class="avbtn" data-av="${k}" aria-pressed="${(k === 'google' ? PREF.avatar === 'google' : sel === k)}">${avatarSVG(k)}</button>`).join('');
     $('perfAv').querySelectorAll('button').forEach(b => b.onclick = () => { PREF.avatar = b.dataset.av; pintaAv(); });
+  };
+  const g = $('perfGoogle');
+  if (g) g.onclick = async () => {
+    if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
+    try {
+      await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {}
+      const u = window.Nube.usuario || {};
+      if (u.photoURL) PREF.fotoGoogle = u.photoURL;
+      const nom = (u.displayName || (u.email || '').split('@')[0] || '').trim().split(/\s+/)[0];
+      if (nom && !$('perfNombre').value.trim()) $('perfNombre').value = nom.slice(0, 20);
+      PREF.avatar = PREF.fotoGoogle ? 'google' : PREF.avatar;
+      if ($('perfGoogleNota')) $('perfGoogleNota').remove();
+      g.outerHTML = `<div class="sub" style="color:var(--oro);font-weight:800">✅ Dentro con ${esc(u.email || 'Google')}</div>`;
+      $('perfNombre').oninput(); pintarNube();
+      aviso('Cambia el nombre si quieres y pulsa «¡A jugar!»');
+    } catch (e) { aviso(/popup/i.test(e && e.code || '') ? 'Se cerró la ventana de Google' : 'No se pudo entrar. ¿Hay internet?'); }
   };
   $('perfNombre').oninput = () => {
     PREF.nombre = $('perfNombre').value;
@@ -2584,7 +2603,13 @@ window.addEventListener('nube', () => {
   if (INVITA && !ONLINE) atenderInvitacion(); else if (u) volverSolo(); });
 $('bEntrar').onclick = async () => {
   if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
-  try { aviso('Abriendo Google…'); await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {} pintarNube(); aviso('¡Dentro! ☁️ Ya puedes ver los récords'); }
+  try {
+    aviso('Abriendo Google…'); await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {}
+    const u = window.Nube.usuario || {};
+    if (u.photoURL) { PREF.fotoGoogle = u.photoURL; if (!PREF.avatar || /^letra:/.test(PREF.avatar)) PREF.avatar = 'google'; LS.set('mc-ajustes2', PREF); }
+    pintarNube(); pintarInicio(); subirNube(); recCache = null;
+    aviso(PREF.avatar === 'google' ? '¡Dentro! ☁️ Ya tienes tu foto de Google y puedes ver los récords' : '¡Dentro! ☁️ Ya puedes ver los récords (tu foto de Google está en ⚙️ Perfil)');
+  }
   catch (e) { aviso(/popup/i.test(e && e.code || '') ? 'Se cerró la ventana de Google' : 'No se pudo entrar. ¿Hay internet?'); }
 };
 $('bRecords').onclick = () => ir('records');
@@ -2650,10 +2675,25 @@ function cargar() {
 }
 async function entrar() { const f = await cargar(); const p = new f.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); await f.auth.signInWithPopup(f.au, p); }
 async function salir() { const f = await cargar(); await f.auth.signOut(f.au); try { localStorage.removeItem('mc-nube'); } catch (e) {} }
+// Cada aparato (móvil, PC…) guarda sus propias cuentas; en la nube se suman todas
+function miAparato() {
+  let id = null; try { id = localStorage.getItem('mc-aparato'); } catch (e) {}
+  if (!id) { id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); try { localStorage.setItem('mc-aparato', id); } catch (e) {} }
+  return id;
+}
 async function subir() {
   if (!usuario || !fb) return;
-  const d = window.datosNube();
-  await fb.fs.setDoc(fb.fs.doc(fb.db, 'jugadores', usuario.uid), Object.assign(d, { actualizado: fb.fs.serverTimestamp() }), { merge: true });
+  const d = window.datosNube(), ref = fb.fs.doc(fb.db, 'jugadores', usuario.uid), yo = miAparato();
+  let previo = null; try { const s = await fb.fs.getDoc(ref); previo = s.exists() ? s.data() : null; } catch (e) {}
+  const aparatos = Object.assign({}, previo && previo.aparatos);
+  // versión antigua (sin aparatos): si este aparato no las contiene, se conservan como «antiguo»
+  if (previo && !previo.aparatos && previo.estad && (previo.estad.partidas || 0) > (d.estad.partidas || 0)) aparatos.antiguo = previo.estad;
+  // el aparato que hizo esas partidas «antiguas» las trae consigo: no contarlas dos veces
+  if (!aparatos[yo] && aparatos.antiguo && (d.estad.partidas || 0) >= (aparatos.antiguo.partidas || 0)) delete aparatos.antiguo;
+  aparatos[yo] = d.estad;
+  const suma = {};
+  for (const e of Object.values(aparatos)) for (const [k, v] of Object.entries(e || {})) if (typeof v === 'number') suma[k] = Math.round(((suma[k] || 0) + v) * 100) / 100;
+  await fb.fs.setDoc(ref, { nombre: d.nombre, avatar: d.avatar, estad: suma, aparatos, actualizado: fb.fs.serverTimestamp() });
 }
 async function records() {
   const f = await cargar(); if (!usuario) throw new Error('sin sesión');
