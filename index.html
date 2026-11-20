@@ -935,9 +935,10 @@ const LETRA = ['o', 'c', 'e', 'b'];
 
 const $ = id => document.getElementById(id);
 const LS = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
-  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  p: window.__lsp || '',   // prefijo solo para pruebas con dos jugadores en el mismo navegador
+  get(k, d) { try { const v = localStorage.getItem(this.p + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(this.p + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(this.p + k); } catch (e) {} }
 };
 const euros = x => (Math.round(x * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 let PREF = Object.assign({}, DEF, LS.get('mc-ajustes2', {}));
@@ -2088,9 +2089,32 @@ function pantallaOnline() {
 /* ---------- Invitaciones: enlace ?mesa=CÓDIGO ---------- */
 function atenderInvitacion() {
   if (!INVITA || !NUBE_OK) return;
-  if (ONLINE) { if (ONLINE.codigo !== INVITA) aviso(`Ya estás en la mesa ${ONLINE.codigo}`); INVITA = null; return; }
-  if ($('inicio').classList.contains('oculto')) return;
+  if (ONLINE) {
+    if (ONLINE.codigo === INVITA) aviso('Ya estás en esta mesa 👍'); else aviso(`Ya estás en la mesa ${ONLINE.codigo}`);
+    INVITA = null; return;
+  }
+  const visible = id => !$(id).classList.contains('oculto');
+  if (!visible('inicio') && !visible('online')) return aviso(`Te invitan a la mesa ${INVITA} 🃏 Sal de esta partida para sentarte`);
+  const mo = LS.get('mc-online', null);
+  if (miUid() && mo && mo.codigo === INVITA) { INVITA = null; return volverMesa(); }   // es tu mesa (o ya estabas sentado)
   ir('online'); pantallaOnline();
+}
+// Si la app ya estaba abierta, el enlace llega aquí sin recargar la página
+try {
+  if ('launchQueue' in window) window.launchQueue.setConsumer(p => {
+    try {
+      const c = (new URL(p.targetURL).searchParams.get('mesa') || '').trim().toUpperCase();
+      if (/^[A-Z]{4}$/.test(c)) { INVITA = c; atenderInvitacion(); }
+    } catch (e) {}
+  });
+} catch (e) {}
+// Al volver a abrir la app (p. ej. tras compartir por WhatsApp), regresar a la mesa sola
+let autoVuelta = false;
+function volverSolo() {
+  if (autoVuelta || ONLINE || INVITA || !miUid() || !NUBE_OK) return;
+  const mo = LS.get('mc-online', null);
+  if (!mo || !mo.t || Date.now() - mo.t > 3 * 3600e3 || $('inicio').classList.contains('oculto')) return;
+  autoVuelta = true; volverMesa();
 }
 function enlaceMesa(c) { return location.origin + location.pathname.replace(/index\.html$/, '') + '?mesa=' + c; }
 function textoInvitacion(c) {
@@ -2121,9 +2145,14 @@ async function crearMesa() {
     try { await red.crear(c, limpiar({ anfitrion: uid, nombreAnf: PREF.nombre || 'Anfitriona', avatarAnf: miAvatar(), estado: 'espera', reglas: reglasMesa(), creada: Date.now() })); codigo = c; } catch (e) { if (!/existe|exists|permission/i.test(String(e && (e.code || e.message)))) { aviso('No se pudo crear la mesa 📵'); return; } }
   }
   if (!codigo) return aviso('No se pudo crear la mesa, prueba otra vez');
+  abrirSala(codigo);
+}
+function abrirSala(codigo) {
+  const red = RED(), uid = miUid();
   ONLINE = { rol: 'anfitrion', codigo, uid, sentados: [], unsubs: [], nombreAnf: PREF.nombre };
+  LS.set('mc-online', { rol: 'anfitrion', codigo, espera: true, nombreAnf: PREF.nombre, t: Date.now() });
   ONLINE.unsubs.push(red.escucharSentados(codigo, l => { if (!ONLINE) return; ONLINE.sentados = l.filter(x => x.uid !== uid).sort((a, b) => (a.t || 0) - (b.t || 0)); salaAnfitrion(); }));
-  salaAnfitrion();
+  ir('online'); salaAnfitrion();
 }
 function asientosMesa() {
   const n = PREF.jugadores, hum = ONLINE.sentados.slice(0, n - 1);
@@ -2179,7 +2208,7 @@ function pubOnline(evs = [], extra = {}) {
   const red = RED(), c = ONLINE.codigo;
   G.jugadores.forEach(p => { if (p.remoto) { const k = p.mano.map(x => x.id).join(','); if (manosPub[p.uid] !== k) { manosPub[p.uid] = k; red.mano(c, p.uid, limpiar(p.mano)).catch(e => console.warn('mano', e)); } } });
   red.publicar(c, limpiar(Object.assign({ publico: P, eventos: ONLINE.eventos }, extra))).catch(e => console.warn('publicar', e));
-  if (!G.terminada) LS.set('mc-online', { rol: 'anfitrion', codigo: c, G, S, seq: ONLINE.seq, eventos: ONLINE.eventos, nombreAnf: ONLINE.nombreAnf, chinchonNeto });
+  if (!G.terminada) LS.set('mc-online', { rol: 'anfitrion', t: Date.now(), codigo: c, G, S, seq: ONLINE.seq, eventos: ONLINE.eventos, nombreAnf: ONLINE.nombreAnf, chinchonNeto });
 }
 let tRemoto = null;
 let tQuien = null;
@@ -2237,7 +2266,11 @@ async function volverMesa(guardada) {
   const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
   let m = null;
   try { m = await red.leer(d.codigo); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
-  if (!m || m.estado !== 'jugando') { LS.del('mc-online'); pintarInicio(); return aviso('Esa mesa ya terminó o se cerró'); }
+  if (m && m.estado === 'espera') {
+    if (m.anfitrion === miUid()) { abrirSala(d.codigo); return aviso('¡De vuelta en tu mesa! 🙌'); }
+    return entrarInvitado(d.codigo, m, true);
+  }
+  if (!m || m.estado !== 'jugando') { LS.del('mc-online'); if (!$('inicio').classList.contains('oculto')) pintarInicio(); return aviso('Esa mesa ya terminó o se cerró'); }
   if (d.rol === 'invitado' || m.anfitrion !== miUid()) return entrarInvitado(d.codigo, m, true);
   // anfitrión: retomar desde lo guardado en este móvil
   const g = d.G ? d : LS.get('mc-online', null);
@@ -2266,7 +2299,7 @@ async function unirme(codigo) {
     return entrarInvitado(codigo, m, true);
   }
   if (m.estado !== 'espera') return aviso('Esa mesa ya ha empezado o se ha cerrado');
-  if (m.anfitrion === uid) return aviso('¡Esa mesa es tuya!');
+  if (m.anfitrion === uid) { abrirSala(codigo); return aviso('Es tu mesa: aquí la tienes 🙌'); }
   try { await red.sentar(codigo, uid, limpiar({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
   entrarInvitado(codigo, m, false);
 }
@@ -2274,6 +2307,8 @@ function entrarInvitado(codigo, m, vuelta) {
   const red = RED(), uid = miUid();
   ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'la anfitriona', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false, vuelta };
   if (vuelta) aviso('¡De vuelta en la mesa! 🙌');
+  if (m.estado === 'espera') LS.set('mc-online', { rol: 'invitado', codigo, espera: true, nombreAnf: ONLINE.nombreAnf, t: Date.now() });
+  ir('online');
   pintarOnline(`<div class="grupo"><h3>Mesa ${codigo}</h3><div class="sentado">${avatarSVGmini(avatarSeguro(m.avatarAnf))}${esc(m.nombreAnf || '')}<small>reparte</small></div>
     <div class="sub" style="margin-top:12px">¡Ya estás sentada! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'la anfitriona')} empiece la partida…</div></div>`);
   ONLINE.unsubs.push(red.escucharMano(codigo, uid, cartas => { if (!ONLINE) return; ONLINE.mano = cartas || []; manoRecibida(); }));
@@ -2289,7 +2324,7 @@ function onMesaInvitado(d) {
     const k = d.publico.jugadores.findIndex(j => j.uid === ONLINE.uid);
     if (k < 0) { ventana('<h2>Mesa llena</h2><div class="sub">No había sitio para ti en esta partida.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
     ONLINE.empezada = true; YO = k;
-    LS.set('mc-online', { rol: 'invitado', codigo: ONLINE.codigo, nombreAnf: ONLINE.nombreAnf });
+    LS.set('mc-online', { rol: 'invitado', codigo: ONLINE.codigo, nombreAnf: ONLINE.nombreAnf, t: Date.now() });
     if (ONLINE.vuelta) { ONLINE.ultEv = Math.max(0, ...(d.eventos || []).map(e => e.n)); if (d.publico.fase === 'resultado') ONLINE.resVisto = d.publico.manoN; }
     Object.keys(S).forEach(x => delete S[x]); Object.assign(S, PREF, d.reglas || {});
     if (!ONLINE.vuelta) { CART.jugadas++; guardarCartera(); chinchonNeto = 0; }
@@ -2410,7 +2445,7 @@ window.addEventListener('nube', () => {
   const u = window.Nube && window.Nube.usuario;
   if (u && u.photoURL && PREF.fotoGoogle !== u.photoURL) { PREF.fotoGoogle = u.photoURL; LS.set('mc-ajustes2', PREF); }
   pintarNube(); if (!$('records').classList.contains('oculto')) pintarRecords();
-  if (INVITA && !ONLINE && !$('online').classList.contains('oculto')) pantallaOnline(); });
+  if (INVITA && !ONLINE) atenderInvitacion(); else if (u) volverSolo(); });
 $('bEntrar').onclick = async () => {
   if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
   try { aviso('Abriendo Google…'); await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {} pintarNube(); aviso('¡Dentro! ☁️ Ya puedes ver los récords'); }
@@ -2448,6 +2483,7 @@ async function pintarRecords() {
 pintarNube();
 
 ir('inicio');
+setTimeout(volverSolo, 400);
 // Funciona sin internet una vez instalada
 if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 </script>
