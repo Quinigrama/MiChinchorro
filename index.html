@@ -192,6 +192,9 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .sentado{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:14px;padding:8px 12px;margin-bottom:6px;font-weight:800;font-size:18px}
 .sentado .avatar{width:40px;height:40px}
 .sentado small{margin-left:auto;font-weight:600;opacity:.8;font-size:14px}
+.invita{background:linear-gradient(135deg,#f3c64b,#e0a52a);color:#3a2600;border-radius:16px;padding:12px 14px;margin-bottom:12px;font-weight:800;text-align:center;line-height:1.35}
+.compartir{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.compartir a,.compartir button{display:block;text-align:center;padding:10px;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-weight:800;text-decoration:none;border:0;font-size:15px}
 .inpcod{width:100%;padding:14px;border-radius:14px;border:0;font-size:32px;font-weight:900;text-align:center;letter-spacing:8px;text-transform:uppercase}
 .fotowrap{position:relative;display:block;width:100%;height:100%}
 .fotowrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
@@ -938,6 +941,13 @@ const LS = {
 };
 const euros = x => (Math.round(x * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 let PREF = Object.assign({}, DEF, LS.get('mc-ajustes2', {}));
+let INVITA = (() => {
+  try {
+    const u = new URL(location.href), c = (u.searchParams.get('mesa') || '').trim().toUpperCase();
+    if (u.searchParams.has('mesa')) { u.searchParams.delete('mesa'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+    return /^[A-Z]{4}$/.test(c) ? c : null;
+  } catch (e) { return null; }
+})();
 if (PREF.niveles && !Object.keys(PREF.nivelDe || {}).length) { PREF.nivelDe = {}; ['Matilde', 'Elvira', 'Pepita'].forEach((n, k) => { if (PREF.niveles[k] != null) PREF.nivelDe[n] = PREF.niveles[k]; }); }
 let CART = Object.assign({ saldo: 10, jugadas: 0, ganadas: 0 }, LS.get('mc-cartera', {}));
 const guardarCartera = () => LS.set('mc-cartera', CART);
@@ -1000,6 +1010,7 @@ function pedirPerfil() {
 }
 function pintarInicio() {
   if (!PREF.perfilHecho) setTimeout(pedirPerfil, 300);
+  else if (INVITA) setTimeout(atenderInvitacion, 50);
   const mo = LS.get('mc-online', null);
   $('bVolverMesa').classList.toggle('oculto', !mo || !NUBE_OK);
   if (mo) $('bVolverMesa').textContent = `🌍 Volver a la mesa ${mo.codigo}`;
@@ -2056,12 +2067,50 @@ $('bVolverMesa').onclick = () => volverMesa();
 $('bOnline').onclick = () => { if (!miUid()) return aviso('Entra antes con Google ☁️'); ir('online'); pantallaOnline(); };
 $('bVolverOnline').onclick = () => { if (ONLINE && ONLINE.rol === 'anfitrion') RED().publicar(ONLINE.codigo, { estado: 'fin', cancelada: true }).catch(() => {}); salirOnline(true); };
 function pantallaOnline() {
-  pintarOnline(`<div class="grupo"><h3>Crear una mesa</h3><div class="nota" style="margin-bottom:10px">Te dará un código para que se sienten las demás. Los huecos los ocupan tus rivales de siempre (${esc(rivalesElegidos().slice(0, PREF.jugadores - 1).join(', '))}).</div>
-      <button class="grande" id="bCrearMesa" style="width:100%">➕ Crear mesa de ${PREF.jugadores}</button></div>
-    <div class="grupo"><h3>Sentarme en una mesa</h3><input class="inpcod" id="inpCod" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters">
-      <button class="grande" id="bUnirme" style="width:100%;margin-top:10px">🔑 Sentarme</button></div>`);
-  $('bCrearMesa').onclick = crearMesa;
-  $('bUnirme').onclick = () => unirme(($('inpCod').value || '').trim().toUpperCase());
+  const logeado = !!miUid(), inv = INVITA;
+  pintarOnline(`${inv ? `<div class="invita">🃏 ¡Te han invitado a la mesa <span style="letter-spacing:3px">${inv}</span>!<br><small style="font-weight:600">${logeado ? 'Pulsa «Sentarme» y a jugar' : 'Primero entra con Google y luego siéntate'}</small></div>` : ''}
+    <div class="grupo"><h3>Sentarme en una mesa</h3><input class="inpcod" id="inpCod" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" value="${inv || ''}">
+      ${logeado ? '<button class="grande" id="bUnirme" style="width:100%;margin-top:10px">🔑 Sentarme</button>'
+        : '<button class="grande" id="bEntrarSentar" style="width:100%;margin-top:10px">☁️ Entrar con Google</button>'}</div>
+    ${logeado ? `<div class="grupo"><h3>Crear una mesa</h3><div class="nota" style="margin-bottom:10px">Te dará un código y un enlace para invitar a las demás. Los huecos los ocupan tus rivales de siempre (${esc(rivalesElegidos().slice(0, PREF.jugadores - 1).join(', '))}).</div>
+      <button class="grande" id="bCrearMesa" style="width:100%">➕ Crear mesa de ${PREF.jugadores}</button></div>` : ''}`);
+  if (logeado) {
+    $('bCrearMesa').onclick = () => { INVITA = null; crearMesa(); };
+    $('bUnirme').onclick = () => { const c = ($('inpCod').value || '').trim().toUpperCase(); if (c === INVITA) INVITA = null; unirme(c); };
+  } else {
+    $('bEntrarSentar').onclick = async () => {
+      if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
+      try { await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {} pintarNube(); pantallaOnline(); }
+      catch (e) { aviso('No se pudo entrar. ¿Hay internet?'); }
+    };
+  }
+}
+/* ---------- Invitaciones: enlace ?mesa=CÓDIGO ---------- */
+function atenderInvitacion() {
+  if (!INVITA || !NUBE_OK) return;
+  if (ONLINE) { if (ONLINE.codigo !== INVITA) aviso(`Ya estás en la mesa ${ONLINE.codigo}`); INVITA = null; return; }
+  if ($('inicio').classList.contains('oculto')) return;
+  ir('online'); pantallaOnline();
+}
+function enlaceMesa(c) { return location.origin + location.pathname.replace(/index\.html$/, '') + '?mesa=' + c; }
+function textoInvitacion(c) {
+  return `🃏 ¡${PREF.nombre || 'Te'} ${PREF.nombre ? 'te invita' : 'invitan'} a una partida de Mi Chinchorro!\nMesa: ${c}\nEntra aquí 👉 ${enlaceMesa(c)}`;
+}
+async function invitar() {
+  const c = ONLINE && ONLINE.codigo; if (!c) return;
+  const txt = textoInvitacion(c);
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Mi Chinchorro', text: txt }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const caja = $('cajaCompartir'); if (!caja) return;
+  const t = encodeURIComponent(txt);
+  caja.innerHTML = `<div class="compartir">
+    <a href="https://wa.me/?text=${t}" target="_blank" rel="noopener">💬 WhatsApp</a>
+    <a href="https://t.me/share/url?url=${encodeURIComponent(enlaceMesa(c))}&text=${encodeURIComponent(txt.split('\n').slice(0, 2).join('\n'))}" target="_blank" rel="noopener">✈️ Telegram</a>
+    <a href="mailto:?subject=${encodeURIComponent('Partida de Mi Chinchorro')}&body=${t}">✉️ Email</a>
+    <button id="bCopiarInv">📋 Copiar</button></div>`;
+  $('bCopiarInv').onclick = async () => { try { await navigator.clipboard.writeText(txt); aviso('Invitación copiada 📋'); } catch (e) { aviso('No se pudo copiar'); } };
 }
 async function crearMesa() {
   const red = RED(); if (!red) return aviso('Sin conexión ahora mismo 📵');
@@ -2086,7 +2135,8 @@ function salaAnfitrion() {
   if (!ONLINE || ONLINE.rol !== 'anfitrion' || ONLINE.empezada) return;
   const { hum, bots } = asientosMesa(), extra = ONLINE.sentados.length - hum.length;
   pintarOnline(`<div class="grupo"><h3>Código de tu mesa</h3><div class="codigo">${ONLINE.codigo}</div>
-      <div class="nota" style="text-align:center">Díselo a las demás: en su móvil, 🌍 Jugar online → Sentarme.</div></div>
+      <button class="grande" id="bInvitar" style="width:100%;margin-top:6px">📨 Invitar</button><div id="cajaCompartir"></div>
+      <div class="nota" style="text-align:center;margin-top:8px">Mándales el enlace, o el código: en su móvil, 🌍 Jugar online → Sentarme.</div></div>
     <div class="grupo"><h3>En la mesa</h3>
       <div class="sentado">${avatarSVGmini(miAvatar())}${esc(PREF.nombre || 'Tú')}<small>tú · repartes</small></div>
       ${hum.map(h => `<div class="sentado">${avatarSVGmini(avatarSeguro(h.avatar))}${esc(h.nombre)}<small>📱 conectada</small></div>`).join('')}
@@ -2095,6 +2145,7 @@ function salaAnfitrion() {
     </div>
     <button class="grande" id="bEmpezarMesa" style="width:100%">▶ Empezar partida</button>`);
   $('bEmpezarMesa').onclick = empezarMesa;
+  $('bInvitar').onclick = invitar;
 }
 function empezarMesa() {
   const { hum, bots } = asientosMesa();
@@ -2358,7 +2409,8 @@ const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 window.addEventListener('nube', () => {
   const u = window.Nube && window.Nube.usuario;
   if (u && u.photoURL && PREF.fotoGoogle !== u.photoURL) { PREF.fotoGoogle = u.photoURL; LS.set('mc-ajustes2', PREF); }
-  pintarNube(); if (!$('records').classList.contains('oculto')) pintarRecords(); });
+  pintarNube(); if (!$('records').classList.contains('oculto')) pintarRecords();
+  if (INVITA && !ONLINE && !$('online').classList.contains('oculto')) pantallaOnline(); });
 $('bEntrar').onclick = async () => {
   if (!window.Nube) return aviso('Sin conexión ahora mismo 📵');
   try { aviso('Abriendo Google…'); await window.Nube.entrar(); try { localStorage.setItem('mc-nube', '1'); } catch (e) {} pintarNube(); aviso('¡Dentro! ☁️ Ya puedes ver los récords'); }
