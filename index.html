@@ -470,29 +470,38 @@ function puedeCerrarCon(a) {
 }
 
 /* ---- Colgar cartas en las jugadas del que cierra ---- */
-function colgar(mano, jugadasMesa) {
-  const a = analizar(mano);
-  let sueltas = a.sueltas.slice(), colgadas = [];
+// ¿Encaja la carta c en alguna jugada de la mesa? Si encaja, se cuelga
+function intentaColgar(c, jugadasMesa) {
   const R = rangos().length;
-  let cambio = true;
-  sueltas.sort((x, y) => (x.j ? 1 : 0) - (y.j ? 1 : 0));
-  while (cambio) {
-    cambio = false;
-    for (const c of sueltas) {
-      let ok = false;
-      for (const j of jugadasMesa) {
-        if (j.t === 'g' && j.cartas.length < 4 && (c.j || c.r === j.r)) { j.cartas.push(c); ok = true; }
-        else if (j.t === 'r' && (c.j || c.s === j.s)) {
-          const ri = c.j ? null : rIdx(c.r);
-          if ((c.j && j.a > 0) || ri === j.a - 1) { j.cartas.unshift(c); j.a--; ok = true; }
-          else if ((c.j && j.b < R - 1) || ri === j.b + 1) { j.cartas.push(c); j.b++; ok = true; }
-        }
-        if (ok) break;
-      }
-      if (ok) { colgadas.push(c); sueltas = sueltas.filter(x => x !== c); cambio = true; break; }
+  for (const j of jugadasMesa) {
+    if (j.t === 'g' && j.cartas.length < 4 && (c.j || c.r === j.r)) { j.cartas.push(c); return true; }
+    if (j.t === 'r' && (c.j || c.s === j.s)) {
+      const ri = c.j ? null : rIdx(c.r);
+      if ((c.j && j.a > 0) || ri === j.a - 1) { j.cartas.unshift(c); j.a--; return true; }
+      if ((c.j && j.b < R - 1) || ri === j.b + 1) { j.cartas.push(c); j.b++; return true; }
     }
   }
-  return { jugadas: a.jugadas, sueltas, colgadas, puntos: sueltas.reduce((t, c) => t + valor(c), 0) };
+  return false;
+}
+// Cuelgan todas a la vez y en cualquier orden: se repite hasta que nadie puede colgar nada más
+// (primero las cartas normales; los comodines, al final, donde mejor encajen)
+function colgarTodas(filas, jugadasMesa) {
+  for (const conComodin of [false, true]) {
+    let cambio = true;
+    while (cambio) {
+      cambio = false;
+      for (const f of filas) for (const c of f.sueltas.slice()) {
+        if (!!c.j !== conComodin) continue;
+        if (intentaColgar(c, jugadasMesa)) { f.colgadas.push(c); f.sueltas = f.sueltas.filter(x => x !== c); cambio = true; }
+      }
+    }
+  }
+  filas.forEach(f => f.puntos = f.sueltas.reduce((t, c) => t + valor(c), 0));
+}
+function colgar(mano, jugadasMesa) {
+  const a = analizar(mano), f = { jugadas: a.jugadas, sueltas: a.sueltas.slice(), colgadas: [] };
+  colgarTodas([f], jugadasMesa);
+  return f;
 }
 
 /* ---- Estado de la partida ---- */
@@ -592,11 +601,16 @@ function cerrar(i, cartaId) {
     return res;
   }
   let k = siguienteActivo(i);
+  const otras = [];
   while (k !== i) {
-    const r = S.colgar ? colgar(G.jugadores[k].mano, mesa) : (() => { const b = analizar(G.jugadores[k].mano); return { jugadas: b.jugadas, sueltas: b.sueltas, colgadas: [], puntos: b.muertos }; })();
-    res.filas.push({ i: k, jugadas: r.jugadas, sueltas: r.sueltas, colgadas: r.colgadas, puntos: r.puntos });
+    const b = analizar(G.jugadores[k].mano);
+    otras.push({ i: k, jugadas: b.jugadas, sueltas: b.sueltas.slice(), colgadas: [], puntos: b.muertos });
     k = siguienteActivo(k);
   }
+  // se cuelga en las jugadas de quien cierra… salvo si ha hecho −10 (ahí está prohibido)
+  if (S.colgar && pc !== -10) colgarTodas(otras, mesa);
+  res.filas.push(...otras);
+  res.sinColgar = S.colgar && pc === -10;
   res.mesa = mesa;
   for (const f of res.filas) { const p = G.jugadores[f.i]; f.antes = p.puntos; p.puntos += f.puntos; f.despues = p.puntos; }
   // Quien pasa del límite se apunta una raya (va al bote)
@@ -1130,6 +1144,7 @@ const OPC = [
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
+  { k: 'barajado', t: 'Forma de barajar', op: [['real', '7 mezclas de verdad'], ['azar', 'Rápido (3 vueltas)']] },
   { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { h: 'Dinero y puntos' },
@@ -1142,7 +1157,7 @@ const OPC = [
   { k: 'maxSueltas', t: 'Cartas sin ligar al cerrar', op: [[0, 'Ninguna'], [1, '1'], [2, '2'], [7, 'Da igual']] },
   { k: 'figuras', t: 'Sota, caballo y rey valen', op: [[10, '10 puntos'], [0, '10, 11 y 12']] },
   { k: 'valorComodin', t: 'Comodín sin ligar vale', op: [[25, '25'], [50, '50']] },
-  { k: 'colgar', t: 'Colgar cartas en las jugadas del que cierra', op: [[true, 'Sí'], [false, 'No']] },
+  { k: 'colgar', t: 'Colgar (descartarse) en las jugadas del que cierra · no si hace −10', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'chinchonGana', t: 'El chinchón gana la partida', op: [[true, 'Sí'], [false, 'No (vale −10)']] }
 ];
 function pintarAjustes() {
@@ -2097,6 +2112,7 @@ function mostrarResultado(res) {
       ${f.colgadas.length ? `<div class="nota">Ha colgado ${f.colgadas.length === 1 ? 'una carta' : f.colgadas.length + ' cartas'} en las jugadas del que cierra</div>` : ''}
       ${f.raya ? `<div class="nota" style="opacity:1;color:#ffb4a6;font-weight:800">Se pasa de ${S.limite}: se apunta una raya (${euros(S.raya)})${f.reengancha !== undefined ? ` y se reengancha con ${f.reengancha}` : ''}</div>` : ''}</div>`;
   }
+  if (res.sinColgar) h += '<div class="nota" style="text-align:center;opacity:1">Ha hecho −10: nadie puede colgar 🚫</div>';
   h += '<div class="nota" style="text-align:center">Verde: ligadas · Azul: colgadas · Rojo: sin ligar</div>';
   ventana(h, [{ t: 'Seguir', f: () => trasResultado(res) }]);
 }
