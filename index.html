@@ -570,9 +570,8 @@ function comprobarFin() {
 
 /* ================= INTELIGENCIA DE LOS RIVALES ================= */
 // nivel: 0 fácil, 1 normal, 2 difícil
-/* Pesos de la valoración (Difícil = PD; la Experta usa PX, optimizados con backtesting) */
+/* Pesos de la valoración (Difícil y Experta usan PD; un jugador puede traer los suyos en p.pesos) */
 const PD = { kPot: 0.7, wPar: 1, esc1: 1.5, esc2: 1, pel: 0.6, pelR: 2, pelS: 1.5, uRobo: 0.5 };
-const PX = Object.assign({}, PD);
 let PS = PD;
 function potencial(sueltas, nivel) {
   const vistos = new Set(G.vistas.map(c => c.s + '-' + c.r));
@@ -782,10 +781,11 @@ function rollout(g, i, accion) {
     if (!TX.prof) return 0;
     // hoja: cómo de buena queda mi mano (puntos sueltos menos esperanzas)
     const Gr = G; G = g;
-    const v = g.jugadores[i].mano.length === 8 ? mejorTirada(i, g.jugadores[i].mano, 2, null).v : evaluar(g.jugadores[i].mano, 2).v;
+    const m8 = g.jugadores[i].mano.length === 8 ? mejorTirada(i, g.jugadores[i].mano, 2, null) : null;
+    const v = m8 ? m8.v : evaluar(g.jugadores[i].mano, 2).v;
     let otros = 0, n = 0, rOtras = 0;
     g.jugadores.forEach((p, k) => { if (k !== i && !p.fuera) { const m = p.mano.length === 8 ? mejorTirada(k, p.mano, 1, null).a : analizar(p.mano); const d = m ? m.muertos : 0; otros += d; rOtras += raya(k, d); n++; } });
-    const mia = analizar(g.jugadores[i].mano.length === 8 ? g.jugadores[i].mano.slice(0, 7) : g.jugadores[i].mano).muertos;
+    const mia = m8 ? m8.a.muertos : analizar(g.jugadores[i].mano).muertos;   // con 8 cartas: tras su mejor descarte
     G = Gr;
     // si nadie ha cerrado aún, el riesgo de raya cuenta a medias
     const rRiesgo = W ? 0.5 * W * (raya(i, mia) - (n ? rOtras / n : 0)) : 0;
@@ -849,8 +849,8 @@ function roboMC(i) {
 
 /* Decide el robo: true = coger del descarte */
 function conPesos(i, f) {
-  const p = G.jugadores[i], nv = p.nivel ?? S.nivel, prev = PS;
-  PS = p.pesos || (nv === 3 ? PX : PD);
+  const p = G.jugadores[i], prev = PS;
+  PS = p.pesos || PD;
   try { return f(); } finally { PS = prev; }
 }
 function iaRobo(i) { return conPesos(i, () => iaRobo_(i)); }
@@ -890,7 +890,7 @@ function iaTirada_(i) {
     const ch = esChinchon(p.mano.filter(x => x !== ci.c));
     if (!(ch && ch.limpio)) {
       const sigo = tiradaMC(i, p.mano, proh) || mejorTirada(i, p.mano, 2, proh);
-      if (sigo && sigo.c.id !== ci.c.id || sigo) {
+      if (sigo) {
         const [vCerrar, vSeguir] = evaluarOpciones(i, [() => cerrar(i, ci.c.id), () => { tirar(i, sigo.c.id); }]);
         if (vSeguir + TX.margenEspera < vCerrar) return { carta: sigo.c, cierra: false };
       }
@@ -931,7 +931,7 @@ function simularHastaFinal() {
   return G.ganador;
 }
 
-if (typeof module !== "undefined") module.exports = { PD, PX, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+if (typeof module !== "undefined") module.exports = { PD, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
 </script>
 <script>
