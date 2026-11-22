@@ -312,22 +312,73 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, precioChinchon: 1, colgar: true, chinchonGana: true,
-  ayudas: true, reparto: 2, vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
+  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
-let rnd = Math.random;
+// Azar criptográfico del navegador: cualquier orden de la baraja es posible e imprevisible
+// (Math.random tiene 128 bits de estado; 40 cartas necesitan ~159 y 48, ~203)
+const rndCripto = (() => {
+  const C = typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues ? globalThis.crypto : null;
+  if (!C) return Math.random;
+  const buf = new Uint32Array(256); let pos = 256;
+  return () => { if (pos >= 255) { C.getRandomValues(buf); pos = 0; } const a = buf[pos++] >>> 5, b = buf[pos++] >>> 6; return (a * 67108864 + b) / 9007199254740992; };
+})();
+let rnd = rndCripto;
 function semilla(s) { rnd = () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 function rangos() { return S.baraja === 48 ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]; }
 function rIdx(r) { return rangos().indexOf(r); }
 function valor(c) { return c.j ? S.valorComodin : (c.r <= 9 ? c.r : (S.figuras === 10 ? 10 : c.r)); }
 
-function nuevaBaraja() {
+function barajaOrdenada() {
   const b = []; let id = 0;
   for (let s = 0; s < 4; s++) for (const r of rangos()) b.push({ id: id++, s, r });
   for (let k = 0; k < S.comodines; k++) b.push({ id: id++, j: true });
-  for (let i = b.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)); [b[i], b[k]] = [b[k], b[i]]; }
   return b;
+}
+function fisherYates(b) { for (let i = b.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)); [b[i], b[k]] = [b[k], b[i]]; } return b; }
+function nuevaBaraja() { return fisherYates(barajaOrdenada()); }
+/* ---------- Mezcla real: modelo Gilbert–Shannon–Reeds (Bayer y Diaconis: ~7 mezclas bastan) ---------- */
+function mezclaHojear(b) {
+  let k = 0; for (let x = 0; x < b.length; x++) if (rnd() < 0.5) k++;   // se parte por donde cae (binomial)
+  const izq = b.slice(0, k), der = b.slice(k), r = [];
+  let a = 0, c = 0;
+  while (a < izq.length || c < der.length) {
+    const qi = izq.length - a, qd = der.length - c;
+    if (rnd() * (qi + qd) < qi) r.push(izq[a++]); else r.push(der[c++]);   // cae del montón más gordo con más probabilidad
+  }
+  return r;
+}
+const MEZCLAS = { real: 7, casa: 3 };
+function cuantasMezclas() { return MEZCLAS[S.barajado] || 0; }
+function barajarComoMesa(b) {
+  const n = cuantasMezclas();
+  if (!n) return fisherYates(b);
+  for (let x = 0; x < n; x++) b = mezclaHojear(b);
+  return b;
+}
+function cortarEn(b, frac) {
+  const k = Math.max(4, Math.min(b.length - 4, Math.round(b.length * frac)));
+  return b.slice(k).concat(b.slice(0, k));
+}
+// Al acabar la mano se recogen las cartas como en la mesa: el montón, las jugadas de cada una juntas y lo que quedó del mazo
+function recogerCartas() {
+  const todas = G.todas || [];
+  if (!todas.length || !G.manoN) return null;
+  const ref = barajaOrdenada();
+  if (ref.length !== todas.length) return null;   // han cambiado la baraja o los comodines: baraja nueva
+  const r = [], vistas = new Set(), pon = c => { if (c && !vistas.has(c.id)) { vistas.add(c.id); r.push(c); } };
+  (G.descarte || []).forEach(pon);
+  const n = G.jugadores.length;
+  for (let x = 0; x < n; x++) {
+    const p = G.jugadores[(G.reparte + 1 + x) % n];
+    if (!p.mano || !p.mano.length) continue;
+    const a = analizar(p.mano);
+    a.jugadas.forEach(j => j.cartas.forEach(pon)); a.sueltas.forEach(pon);
+  }
+  (G.mazo || []).forEach(pon);
+  todas.forEach(pon);   // por si falta alguna (la carta del cierre)
+  return r.length === todas.length ? r : null;
 }
 
 function nombreCarta(c) {
@@ -467,14 +518,27 @@ function siguienteActivo(i) {
 }
 
 function repartir() {
+  const recogidas = cuantasMezclas() ? recogerCartas() : null;
   G.manoN++;
   G.reparte = siguienteActivo(G.reparte);
-  G.mazo = nuevaBaraja(); G.todas = G.mazo.slice(); G.descarte = []; G.vistas = []; G.cogidas = {}; G.conocidas = {}; G.reciclado = null; G.turnos = 0;
+  // baraja recogida de la mano anterior y mezclada de verdad; la primera vez (o si cambia la baraja), bien barajada
+  const b = recogidas ? barajarComoMesa(recogidas) : nuevaBaraja();
+  G.antesDelCorte = b.slice();
+  repartirDe(cortarEn(b, 0.25 + rnd() * 0.5));
+}
+function repartirDe(mazo) {
+  G.mazo = mazo; G.todas = G.mazo.slice(); G.descarte = []; G.vistas = []; G.cogidas = {}; G.conocidas = {}; G.reciclado = null; G.turnos = 0;
   G.jugadores.forEach(j => { j.mano = []; j.ultimo = ''; });
   for (let k = 0; k < 7; k++) for (const i of activos()) G.jugadores[i].mano.push(G.mazo.pop());
   G.descarte.push(G.mazo.pop());
   G.turno = siguienteActivo(G.reparte);
   G.fase = 'robar';
+}
+// Corte de verdad: quien corta elige por dónde (0 = arriba del todo, 1 = abajo); solo antes de jugar
+function cortarYRepartir(frac) {
+  if (!G.antesDelCorte || G.turnos) return false;
+  repartirDe(cortarEn(G.antesDelCorte.slice(), frac));
+  return true;
 }
 
 function rellenarMazo() {
@@ -483,7 +547,7 @@ function rellenarMazo() {
   const top = G.descarte.pop();
   G.mazo = G.descarte; G.descarte = [top];
   G.reciclado = G.mazo.map(c => c.id); // todo el mundo sabe qué cartas forman el mazo nuevo
-  for (let i = G.mazo.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)); [G.mazo[i], G.mazo[k]] = [G.mazo[k], G.mazo[i]]; }
+  G.mazo = barajarComoMesa(G.mazo);
   return true;
 }
 
@@ -931,7 +995,7 @@ function simularHastaFinal() {
   return G.ganador;
 }
 
-if (typeof module !== "undefined") module.exports = { PD, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+if (typeof module !== "undefined") module.exports = { PD, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
 </script>
 <script>
@@ -1615,10 +1679,11 @@ function montoncito(n, rect, extra = '') {
   document.body.appendChild(caja);
   return caja;
 }
-async function animarBarajar(rect) {
+async function animarBarajar(rect, texto) {
   const izq = montoncito(5, rect), der = montoncito(5, rect);
-  const ms = 260 * RITMO();
-  for (let vuelta = 0; vuelta < 3 && !saltarReparto; vuelta++) {
+  const n = cuantasMezclas() || 3, ms = 260 * RITMO() * (n > 3 ? 0.55 : 1);
+  for (let vuelta = 0; vuelta < n && !saltarReparto; vuelta++) {
+    if (texto && n > 3) mensaje(`${texto} · mezcla ${vuelta + 1} de ${n}`);
     const sep = rect.width * 0.62;
     await Promise.all([
       izq.animate([{ transform: 'none' }, { transform: `translateX(${-sep}px) rotate(-10deg)` }], { duration: ms, fill: 'forwards', easing: 'ease-out' }).finished,
@@ -1649,8 +1714,13 @@ async function animarCorte(rect) {
 function esperarCorteYo(t) {
   return new Promise(res => {
     const m = $('mMazo'); m.classList.add('activo');
-    mensaje('Te toca cortar ✂️ Toca el mazo', true); vibrar('turno');
-    const fin = () => { finCorte = null; m.classList.remove('activo'); m.removeEventListener('click', fin); clearTimeout(tt); res(); };
+    mensaje('Te toca cortar ✂️ Toca el mazo: arriba cortas pocas, abajo muchas', true); vibrar('turno');
+    const fin = e => {
+      finCorte = null; m.classList.remove('activo'); m.removeEventListener('click', fin); clearTimeout(tt);
+      // el corte de verdad: por donde tocas el mazo
+      if (e && e.clientY != null) { const r = m.getBoundingClientRect(); const f = Math.max(0.1, Math.min(0.9, (e.clientY - r.top) / r.height)); cortarYRepartir(f); }
+      res();
+    };
     finCorte = fin;
     m.addEventListener('click', fin);
     const tt = setTimeout(fin, 8000);
@@ -1666,8 +1736,9 @@ async function repartoAnimado(t) {
   const rect = cartaMazo().getBoundingClientRect();
   try {
     $('velo').classList.add('oculto');
-    mensaje(`${r.humano ? 'Barajas tú' : 'Baraja ' + r.nombre} 🔀 · Mano ${G.manoN}`);
-    await animarBarajar(rect); if (!vivo()) return;
+    const txtB = `${r.humano ? 'Barajas tú' : 'Baraja ' + r.nombre} 🔀 · Mano ${G.manoN}`;
+    mensaje(txtB);
+    await animarBarajar(rect, txtB); if (!vivo()) return;
     if (!saltarReparto) {
       if (G.jugadores[cortadora].humano && !ONLINE) { await esperarCorteYo(t); if (!vivo()) return; }
       else mensaje(`Corta ${G.jugadores[cortadora].nombre} ✂️`);
