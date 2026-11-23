@@ -1834,7 +1834,7 @@ $('bSalir').onclick = () => {
 
 function empezarMano() {
   if (ONLINE && ONLINE.rol === 'anfitrion') { aplicarSillas(true); sillasNuevas(); }
-  repartir(); G.jugadores[YO].orden = null; orden = 1; sel = null; nueva = null; pistaId = null;
+  repartir(); G.reg = null; regMano(); G.jugadores[YO].orden = null; orden = 1; sel = null; nueva = null; pistaId = null;
   G.res = null;
   G.jugadores.forEach(p => p.farol = null);
   G.anim = null; guardar();
@@ -1901,7 +1901,7 @@ function esperarCorteYo(t) {
     const fin = e => {
       finCorte = null; m.classList.remove('activo'); m.removeEventListener('click', fin); clearTimeout(tt);
       // el corte de verdad: por donde tocas el mazo
-      if (e && e.clientY != null) { const r = m.getBoundingClientRect(); const f = Math.max(0.1, Math.min(0.9, (e.clientY - r.top) / r.height)); cortarYRepartir(f); }
+      if (e && e.clientY != null) { const r = m.getBoundingClientRect(); const f = Math.max(0.1, Math.min(0.9, (e.clientY - r.top) / r.height)); cortarYRepartir(f); G.reg = null; regMano(); }
       res();
     };
     finCorte = fin;
@@ -1986,6 +1986,7 @@ async function turnoIA(t) {
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(i, deDesc);
   if (!c) return manoNula();
+  reg(deDesc ? 'D' : 'M', i, deDesc ? c : null);
   if (deDesc) { const de = G.ultimoTira; de === YO ? decir(i, 'cogeTuya') : decir(i, 'coge', { p: de != null && G.jugadores[de] ? G.jugadores[de].nombre : '' }); }
   p.ultimo = deDesc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
   mensaje(deDesc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
@@ -2001,6 +2002,7 @@ async function turnoIA(t) {
   if (d.cierra) {
     mensaje(`¡${p.nombre} cierra!`);
     await volar(avatarDe(i), cartaMonton(), dorsoHTML, VUELO()); if (t !== token) return;
+    reg('C', i);
     const res = cerrar(i, d.carta.id);
     const deFarol = p.farol != null && G.turnos - p.farol <= activos().length * 2 && !(res.finPartida && res.chinchon);
     const habla = decir(i, res.finPartida && res.chinchon ? 'chinchon' : deFarol ? 'cierraFarol' : (res.filas[0].puntos === -10 ? 'menos10' : 'cierra'), {}, true);
@@ -2012,7 +2014,7 @@ async function turnoIA(t) {
     return finMano(res, habla);
   }
   await volar(avatarDe(i), cartaMonton(), htmlCarta(d.carta), VUELO()); if (t !== token) return;
-  tirar(i, d.carta.id); G.ultimoTira = i;
+  reg('T', i, d.carta); tirar(i, d.carta.id); G.ultimoTira = i;
   if (ONLINE) pendEv.push({ t: 'tira', i, carta: d.carta });
   if (!d.carta.j && d.carta.r >= 10) decir(i, 'figura', { c: nombreCarta(d.carta), rey: d.carta.r === 12 });
   else if (PREF.charla) {
@@ -2030,6 +2032,7 @@ async function turnoIA(t) {
 }
 
 function manoNula() {
+  regFin(null);
   mensaje('Se acabó el mazo: mano nula, se vuelve a repartir');
   const t = ++token;
   setTimeout(() => { if (t === token) empezarMano(); }, 2000);
@@ -2044,6 +2047,7 @@ function cogerYo(deDesc) {
   if (deDesc) { EST.cogidasMonton++; guardarEst(); }
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(YO, deDesc);
+  if (c) reg(deDesc ? 'D' : 'M', YO, deDesc ? c : null);
   if (c) volar(origen, $('mano'), htmlCarta(c), Math.min(VUELO(), 600));
   if (!c) return manoNula();
   nueva = c.id; sel = null; pistaId = null;
@@ -2144,7 +2148,7 @@ function tirarYo(id) {
     sel = null; nueva = null; pistaId = null; volteada = null; mensaje(`Has tirado ${nombreCarta(c)}`); pintar(true);
     return enviarAccion({ tipo: 'tirar', id });
   }
-  tirar(YO, id); G.ultimoTira = YO; if (ONLINE) pendEv.push({ t: 'tira', i: YO, carta: c }); sel = null; nueva = null; pistaId = null; volteada = null;
+  reg('T', YO, c); tirar(YO, id); G.ultimoTira = YO; if (ONLINE) pendEv.push({ t: 'tira', i: YO, carta: c }); sel = null; nueva = null; pistaId = null; volteada = null;
   G.jugadores[YO].ultimo = '';
   mensaje(`Has tirado ${nombreCarta(c)}`);
   pintar(true);
@@ -2157,6 +2161,7 @@ function cerrarYo(id) {
   if (id === G.cogida || !puedeCerrarCon(analizar(resto))) { enderezar(); return aviso('Todavía no puedes cerrar con esa carta'); }
   clearTimeout(tVuelta); volteada = null; sel = null;
   if (ONLINE && ONLINE.rol === 'invitado') { G.jugadores[YO].mano = G.jugadores[YO].mano.filter(x => x.id !== id); G.turno = -1; pintar(); mensaje('¡Cierras! 🎉'); return enviarAccion({ tipo: 'cerrar', id }); }
+  reg('C', YO);
   const res = cerrar(YO, id);
   finMano(res, alguna('tuCierras', {}, true));
 }
@@ -2256,8 +2261,63 @@ function pintar(flash) {
 }
 
 /* ---------- Fin de mano ---------- */
+/* ---------- Registro de jugadas públicas (para aprender el estilo de cada jugador) ----------
+   Solo lo que se ve en la mesa: de dónde roba cada uno (y la carta si es del montón), qué tira,
+   cuándo cierra y las cartas que se enseñan al final. Nunca las cartas ocultas durante la mano.
+   Lo apunta solo quien lleva la partida (en online, el anfitrión) para no duplicar. */
+const REG_K = 'mc-jugadas', REG_MAX = 250;
+const cc = c => !c ? '' : c.j ? '*' : c.r + 'oceb'[c.s];
+function regMano() {
+  if (!G || (ONLINE && ONLINE.rol === 'invitado')) return null;
+  if (!G.reg || G.reg.m !== G.manoN) {
+    G.reg = { v: 1, m: G.manoN, t: Date.now(), on: ONLINE ? 1 : 0,
+      cfg: { b: S.baraja, k: S.comodines, l: S.limite, mp: S.maxPuntos, cg: S.colgar ? 1 : 0 },
+      js: G.jugadores.map(p => {
+        const hum = !!(p.humano || p.remoto);
+        return { n: p.nombre || '', h: hum ? 1 : 0, nv: hum ? null : (p.nivel ?? S.nivel), u: p.remoto ? (p.uid || null) : (p.humano ? (miUid() || null) : null), f: p.fuera ? 1 : 0 };
+      }),
+      pts: G.jugadores.map(p => p.puntos), rep: G.reparte, ab: cc(G.descarte[0]), ev: [], rk: '' };
+  }
+  return G.reg;
+}
+function reg(tipo, i, c) {
+  try {
+    const r = regMano(); if (!r) return;
+    const rk = G.reciclado ? G.reciclado.length + '-' + G.reciclado[0] : '';
+    if (rk !== r.rk) { r.rk = rk; if (rk) r.ev.push('R'); }   // se rebarajó el montón
+    r.ev.push(i + tipo + (c ? cc(c) : ''));
+  } catch (e) { console.warn('registro', e); }
+}
+function regFin(res) {
+  try {
+    const r = regMano(); if (!r || r.fin) return;
+    r.fin = res ? { c: res.cierra, ch: res.chinchon ? (res.chinchon.limpio ? 2 : 1) : 0,
+      f: res.filas.map(f => ({ i: f.i, p: f.puntos, j: f.jugadas.map(x => x.cartas.map(cc).join(' ')), s: f.sueltas.map(cc).join(' '), cg: (f.colgadas || []).map(cc).join(' ') })) }
+      : { nula: 1 };
+    r.turnos = G.turnos;
+    const q = LS.get(REG_K, []); q.push(r); while (q.length > REG_MAX) q.shift(); LS.set(REG_K, q);
+    subirRegistro();
+  } catch (e) { console.warn('registro', e); }
+}
+let subiendoReg = false;
+async function subirRegistro() {
+  const N = window.Nube; if (subiendoReg || !N || !N.usuario || !N.subirJugadas) return;
+  const q = LS.get(REG_K, []); if (!q.length) return;
+  subiendoReg = true;
+  try {
+    const lote = q.slice(0, 100);
+    await N.subirJugadas(lote);
+    const ts = new Set(lote.map(r => r.t + '-' + r.m));
+    LS.set(REG_K, LS.get(REG_K, []).filter(r => !ts.has(r.t + '-' + r.m)));
+  } catch (e) { console.warn('subir jugadas', e && e.code || e); }
+  finally { subiendoReg = false; }
+}
+window.addEventListener('nube', () => setTimeout(subirRegistro, 3000));
+window.addEventListener('online', () => setTimeout(subirRegistro, 3000));
+
 function finMano(res, habla, pausa) {
   token++;
+  regFin(res);
   anotarMano(res);
   if (ONLINE && ONLINE.rol === 'anfitrion') { G.fase = 'resultado'; G.res = res; pubOnline([{ t: 'cierra', i: res.cierra }]); }
   if (!G.jugadores[res.cierra].humano) vibrar('cierre');
@@ -2906,6 +2966,7 @@ async function onAccion(a) {
     const t = ++token;
     const origen = a.desc ? cartaMonton() : cartaMazo();
     const c = robar(i, !!a.desc); if (!c) return manoNula();
+    reg(a.desc ? 'D' : 'M', i, a.desc ? c : null);
     p.ultimo = a.desc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
     mensaje(a.desc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
     pubOnline([{ t: 'roba', i, desc: !!a.desc, carta: a.desc ? c : null }]);
@@ -2915,7 +2976,7 @@ async function onAccion(a) {
     const c = p.mano.find(x => x.id === a.id); if (!c || c.id === G.cogida) return;
     clearTimeout(tRemoto); const t = ++token;
     await volar(avatarDe(i), cartaMonton(), htmlCarta(c), VUELO()); if (t !== token) return;
-    tirar(i, c.id); G.ultimoTira = i; p.ultimo += ' y tiró ' + nombreCarta(c);
+    reg('T', i, c); tirar(i, c.id); G.ultimoTira = i; p.ultimo += ' y tiró ' + nombreCarta(c);
     pendEv.push({ t: 'tira', i, carta: c });
     mensaje(`${p.nombre} tira ${nombreCarta(c)}`); pintar(true);
     setTimeout(() => { if (t === token) avanzar(); }, 400);
@@ -2925,6 +2986,7 @@ async function onAccion(a) {
     clearTimeout(tRemoto); const t = ++token;
     mensaje(`¡${p.nombre} cierra!`);
     await volar(avatarDe(i), cartaMonton(), dorsoHTML, VUELO()); if (t !== token) return;
+    reg('C', i);
     const res = cerrar(i, a.id);
     finMano(res, alguna('otraCierra', { p: p.nombre }, true));
   }
@@ -3254,7 +3316,13 @@ const red = {
   async accion(c, d) { await fb.fs.addDoc(fb.fs.collection(fb.db, 'mesas', c, 'acciones'), d); },
   escucharAcciones(c, cb) { return fb.fs.onSnapshot(fb.fs.collection(fb.db, 'mesas', c, 'acciones'), s => { s.docChanges().forEach(ch => { if (ch.type === 'added') { cb(ch.doc.data()); fb.fs.deleteDoc(ch.doc.ref).catch(() => {}); } }); }, e => console.warn('acciones', e)); }
 };
-window.Nube = { cargar, entrar, salir, subir, records, get usuario() { return usuario; }, get red() { return fb ? red : null; } };
+async function subirJugadas(lista) {
+  if (!usuario || !fb) throw new Error('sin sesión');
+  const b = fb.fs.writeBatch(fb.db), ap = miAparato();
+  for (const r of lista) b.set(fb.fs.doc(fb.fs.collection(fb.db, 'jugadas')), Object.assign({}, r, { uid: usuario.uid, ap, subido: fb.fs.serverTimestamp() }));
+  await b.commit();
+}
+window.Nube = { cargar, entrar, salir, subir, records, subirJugadas, get usuario() { return usuario; }, get red() { return fb ? red : null; } };
 try { if (localStorage.getItem('mc-nube') === '1' && navigator.onLine) cargar().catch(() => {}); } catch (e) {}
 </script>
 </body>
