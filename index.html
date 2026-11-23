@@ -676,7 +676,7 @@ function peligro(c, i) {
   // ¿le vendría bien al siguiente jugador? (nivel difícil)
   if (c.j) return 0;
   const sig = siguienteActivo(i);
-  const cog = G.cogidas[sig] || [];
+  const cog = G.conocidas[sig] || [];   // lo que sigue teniendo de lo que cogió del montón
   let p = 0;
   for (const x of cog) {
     if (x.r === c.r) p += PS.pelR;
@@ -869,7 +869,7 @@ function rollout(g, i, accion) {
     const rRiesgo = W ? 0.5 * W * (raya(i, mia) - (n ? rOtras / n : 0)) : 0;
     return v * TX.hoja - (TX.relativa && n ? otros / n : 0) + rRiesgo;
   }
-  if (res.chinchon && res.chinchon.limpio) return res.cierra === i ? -60 : 30;
+  if (res.chinchon && res.chinchon.limpio && S.chinchonGana) return res.cierra === i ? -60 : 30;   // si el chinchón no gana, cuenta como un −10 normal
   let mio = 0, otros = 0, n = 0, rMia = 0, rOtras = 0;
   for (const f of res.filas) { if (f.i === i) { mio = f.puntos; rMia = raya(i, f.puntos); } else { otros += f.puntos; rOtras += raya(f.i, f.puntos); n++; } }
   return mio - (n ? otros / n : 0) + W * (rMia - (n ? rOtras / n : 0));
