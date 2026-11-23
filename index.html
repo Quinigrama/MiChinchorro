@@ -1581,7 +1581,7 @@ function hablar(nombre, texto) {
 if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices(); }
 
 /* ---------- Estadísticas de la jugadora ---------- */
-const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinchones: 0, puntos: 0, pillada: 0, figurasPilladas: 0, rayas: 0, euros: 0, tiradas: 0, mejorables: 0, cierresPerdidos: 0, cogidasMonton: 0, cogidasUtiles: 0, desde: null };
+const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinchones: 0, puntos: 0, pillada: 0, figurasPilladas: 0, rayas: 0, euros: 0, tiradas: 0, mejorables: 0, cierresPerdidos: 0, cogidasMonton: 0, cogidasUtiles: 0, manosPartidas: 0, partidasContadas: 0, manosMax: 0, desde: null };
 // Liga de niveles: por nivel (n0..n3), tú (yo) y personas online (per): manos, suma y suma² de puntos frente a la mesa, cierres, −10, rayas, partidas y ganadas
 const LIGA = ['n3', 'n2', 'n1', 'n0', 'yo', 'per'], LIGA_C = ['m', 'r', 'q', 'c', 'd', 'y', 'p', 'g'];
 for (const L of LIGA) for (const c of LIGA_C) EST0[`lg_${L}_${c}`] = 0;
@@ -1707,7 +1707,7 @@ function otrosAparatos() {
 function estCuenta() {
   const e = Object.assign({}, EST);
   for (const o of otrosAparatos()) {
-    for (const k of Object.keys(EST0)) if (typeof EST0[k] === 'number' && typeof o[k] === 'number') e[k] = Math.round((e[k] + o[k]) * 100) / 100;
+    for (const k of Object.keys(EST0)) if (typeof EST0[k] === 'number' && typeof o[k] === 'number') e[k] = k === 'manosMax' ? Math.max(e[k], o[k]) : Math.round((e[k] + o[k]) * 100) / 100;
     if (o.desde && (!e.desde || o.desde < e.desde)) e.desde = o.desde;
   }
   return e;
@@ -1734,6 +1734,7 @@ function pintarEstad() {
   $('estadDatos').innerHTML = `
     <div class="grupo"><h3>🃏 Partidas</h3><div class="tiles">
       ${tile(e.partidas, 'jugadas')}${tile(e.ganadas, 'ganadas')}${tile(e.partidas ? Math.round(100 * e.ganadas / e.partidas) + ' %' : '–', 'de victorias')}
+      ${tile(e.partidasContadas ? (e.manosPartidas / e.partidasContadas).toFixed(1).replace('.', ',') : '–', 'manos por partida (media)')}${tile(e.manosMax || '–', 'manos en la partida más larga')}
     </div></div>
     <div class="grupo"><h3>✋ Manos</h3><div class="tiles">
       ${tile(e.manos, 'jugadas')}${tile(e.cierres, 'cerradas por ti')}${tile(e.menos10, 'con −10')}
@@ -2286,7 +2287,8 @@ function finPartida(titulo) {
   guardarCartera();
   const yo = G.jugadores[YO];
   const neto = Math.round(((gano ? G.bote : 0) - (yo.rayas - (yo.rayas0 || 0)) * S.raya + chinchonNeto) * 100) / 100;
-  EST.partidas++; if (gano) EST.ganadas++; EST.euros = Math.round((EST.euros + neto - chinchonNeto) * 100) / 100; guardarEst();
+  EST.partidas++; if (gano) EST.ganadas++;
+  if (G.manoN) { EST.manosPartidas += G.manoN; EST.partidasContadas++; if (G.manoN > EST.manosMax) EST.manosMax = G.manoN; } EST.euros = Math.round((EST.euros + neto - chinchonNeto) * 100) / 100; guardarEst();
   subirNube();
   let h = `<div class="premio">${gano ? '🏆' : '🃏'}</div><h2>${titulo ? titulo + '<br>' : ''}${gano ? '¡Has ganado la partida!' : g ? `Gana ${g.nombre}` : 'Fin de la partida'}</h2>`;
   h += `<div class="sub">${gano ? `Te llevas todas las rayas: <b>${euros(G.bote)}</b>` : `${g ? g.nombre + ' se lleva las rayas:' : 'Rayas:'} ${euros(G.bote)}`}</div>`;
