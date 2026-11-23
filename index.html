@@ -1585,28 +1585,34 @@ const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinch
 // Liga de niveles: por nivel (n0..n3), tú (yo) y personas online (per): manos, suma y suma² de puntos frente a la mesa, cierres, −10, rayas, partidas y ganadas
 const LIGA = ['n3', 'n2', 'n1', 'n0', 'yo', 'per'], LIGA_C = ['m', 'r', 'q', 'c', 'd', 'y', 'p', 'g'];
 for (const L of LIGA) for (const c of LIGA_C) EST0[`lg_${L}_${c}`] = 0;
+// para la liga global: los bots solo los apunta quien lleva la partida (en una mesa online, el anfitrión), para no contarlos dos veces
+for (const L of ['n3', 'n2', 'n1', 'n0']) for (const c of LIGA_C) EST0[`lgx_${L}_${c}`] = 0;
 let EST = Object.assign({}, EST0, LS.get('mc-estad', {}));
 function claveLiga(i) { const p = G.jugadores[i]; if (i === YO) return 'yo'; if (p.uid || p.remoto || p.humano) return 'per'; return 'n' + (p.nivel ?? S.nivel); }
 function anotarLiga(res) {
   if (res.liga) return; res.liga = true;
-  if (res.chinchon && res.chinchon.limpio && S.chinchonGana) { const k = claveLiga(res.cierra); EST[`lg_${k}_c`]++; return; }
+  if (res.chinchon && res.chinchon.limpio && S.chinchonGana) { const k = claveLiga(res.cierra); EST[`lg_${k}_c`]++; if (k[0] === 'n' && !(ONLINE && ONLINE.rol === 'invitado')) EST[`lgx_${k}_c`]++; return; }
   const fs = res.filas.filter(f => G.jugadores[f.i]); if (fs.length < 2) return;
   const tot = fs.reduce((a, f) => a + f.puntos, 0);
   for (const f of fs) {
     const k = claveLiga(f.i), rel = f.puntos - (tot - f.puntos) / (fs.length - 1);
-    EST[`lg_${k}_m`]++; EST[`lg_${k}_r`] += rel; EST[`lg_${k}_q`] += rel * rel;
-    if (f.i === res.cierra) { EST[`lg_${k}_c`]++; if (f.puntos === -10) EST[`lg_${k}_d`]++; }
-    if (f.raya) EST[`lg_${k}_y`]++;
+    const pref = [`lg_${k}`]; if (k[0] === 'n' && !(ONLINE && ONLINE.rol === 'invitado')) pref.push(`lgx_${k}`);
+    for (const x of pref) {
+      EST[`${x}_m`]++; EST[`${x}_r`] += rel; EST[`${x}_q`] += rel * rel;
+      if (f.i === res.cierra) { EST[`${x}_c`]++; if (f.puntos === -10) EST[`${x}_d`]++; }
+      if (f.raya) EST[`${x}_y`]++;
+    }
   }
   guardarEst();
 }
 function anotarLigaFin() {
   if (G.ligaFin) return; G.ligaFin = true;
-  G.jugadores.forEach((p, i) => { const k = claveLiga(i); EST[`lg_${k}_p`]++; if (G.ganador === i) EST[`lg_${k}_g`]++; });
+  const lleva = !(ONLINE && ONLINE.rol === 'invitado');
+  G.jugadores.forEach((p, i) => { const k = claveLiga(i); EST[`lg_${k}_p`]++; if (G.ganador === i) EST[`lg_${k}_g`]++; if (k[0] === 'n' && lleva) { EST[`lgx_${k}_p`]++; if (G.ganador === i) EST[`lgx_${k}_g`]++; } });
   guardarEst();
 }
-function pintarLiga(e) {
-  const NOM = { n3: '🧠 Experta', n2: '🔴 Difícil', n1: '🟡 Normal', n0: '🟢 Fácil', yo: '🙋 Tú', per: '📱 Personas online' };
+function pintarLiga(e, otrosNombres) {
+  const NOM = Object.assign({ n3: '🧠 Experta', n2: '🔴 Difícil', n1: '🟡 Normal', n0: '🟢 Fácil', yo: '🙋 Tú', per: '📱 Personas online' }, otrosNombres || {});
   const filas = LIGA.filter(L => e[`lg_${L}_m`] > 0).map(L => {
     const n = e[`lg_${L}_m`], m = e[`lg_${L}_r`] / n, sd = Math.sqrt(Math.max(0, e[`lg_${L}_q`] / n - m * m));
     return { L, n, m, ic: n > 1 ? 1.96 * sd / Math.sqrt(n) : 99, c: e[`lg_${L}_c`] / n, d: e[`lg_${L}_d`] / n, y: e[`lg_${L}_y`] / n, p: e[`lg_${L}_p`], g: e[`lg_${L}_g`] };
@@ -1685,7 +1691,8 @@ window.mezclarCuenta = (previo, yo) => {
   d.estad.t = Date.now();
   const suma = {};
   for (const e of Object.values(aparatos)) for (const [k, v] of Object.entries(e || {})) if (typeof v === 'number') suma[k] = Math.round(((suma[k] || 0) + v) * 100) / 100;
-  const publicos = ['partidas', 'ganadas', 'manos', 'cierres', 'menos10', 'chinchones', 'rayas', 'euros'];
+  const publicos = ['partidas', 'ganadas', 'manos', 'cierres', 'menos10', 'chinchones', 'rayas', 'euros']
+    .concat(Object.keys(EST0).filter(k => /^lg_yo_|^lgx_/.test(k)));
   const estad = Object.fromEntries(publicos.map(k => [k, suma[k] || 0]));
   return { nombre: d.nombre, avatar: d.avatar, estad, aparatos, reinicios };
 };
@@ -3118,9 +3125,19 @@ async function pintarRecords() {
   const asc = recOrden === 'rayas';
   filas.sort((a, b) => asc ? (val(a) / Math.max(1, a.e.partidas)) - (val(b) / Math.max(1, b.e.partidas)) : val(b) - val(a) || b.e.partidas - a.e.partidas);
   if (!filas.length) { lista.innerHTML = '<div class="grupo">Todavía no hay récords. ¡Juega una partida y serás la primera! 🥇</div>'; return; }
+  // liga global: todas las personas juntas frente a cada nivel de bots
+  const g = {}; let gente = 0;
+  for (const d of recCache.datos) {
+    const e = d.estad || {}; if (!e.lg_yo_m) continue; gente++;
+    for (const c of LIGA_C) {
+      g[`lg_yo_${c}`] = (g[`lg_yo_${c}`] || 0) + (e[`lg_yo_${c}`] || 0);
+      for (const L of ['n3', 'n2', 'n1', 'n0']) g[`lg_${L}_${c}`] = (g[`lg_${L}_${c}`] || 0) + (e[`lgx_${L}_${c}`] || 0);
+    }
+  }
+  const ligaGlobal = gente ? `<div class="grupo"><h3>🌍 Liga global de niveles</h3>${pintarLiga(g, { yo: `🙋 Personas (${gente})` })}</div>` : '';
   const medalla = k => ['🥇', '🥈', '🥉'][k] || (k + 1) + '.';
   const etiqueta = f => recOrden === 'pct' ? f.pct + ' %' : recOrden === 'rayas' ? `${media(f.e.rayas, f.e.partidas)} por partida` : val(f);
-  lista.innerHTML = filas.slice(0, 50).map((f, k) => `<div class="recfila ${f.id === yo ? 'mia' : ''}">
+  lista.innerHTML = ligaGlobal + filas.slice(0, 50).map((f, k) => `<div class="recfila ${f.id === yo ? 'mia' : ''}">
       <span class="pos">${medalla(k)}</span><span class="avatar">${conInicial(f.nombre, () => avatarSVG(f.avatar))}</span>
       <span class="rnom">${esc(f.nombre || 'Sin nombre')}<small>${f.e.partidas} partidas · ${f.e.ganadas} ganadas</small></span>
       <b class="rval">${etiqueta(f)}</b></div>`).join('')
