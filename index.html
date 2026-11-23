@@ -665,7 +665,8 @@ const PD = { kPot: 0.7, wPar: 1, esc1: 1.5, esc2: 1, pel: 0.6, pelR: 2, pelS: 1.
 let PS = PD;
 function potencial(sueltas, nivel) {
   const vistos = new Set(G.vistas.map(c => c.s + '-' + c.r));
-  const vivo = (s, r) => !vistos.has(s + '-' + r);
+  const salen = cartasQuePuedenSalir();
+  const vivo = salen ? (s, r) => salen.has(s + '-' + r) : (s, r) => !vistos.has(s + '-' + r);
   let p = 0;
   const rs = sueltas.filter(c => !c.j);
   for (let x = 0; x < rs.length; x++) for (let y = x + 1; y < rs.length; y++) {
@@ -682,7 +683,9 @@ function potencial(sueltas, nivel) {
 }
 function evaluar(mano, nivel) {
   const a = analizar(mano);
-  return { v: a.muertos - (nivel ? potencial(a.sueltas, nivel) * (nivel === 2 ? PS.kPot : 0.15) : 0), a };
+  const u = nivel ? urgencia() : 0;
+  const prisa = u ? u * TX.wPrisa * Math.max(0, a.sueltas.length - 1) : 0;   // con prisa cuenta cuántas sueltas faltan para poder cerrar
+  return { v: a.muertos * (1 - u * TX.bajaValor) + prisa - (nivel ? potencial(a.sueltas, nivel) * (nivel === 2 ? PS.kPot : 0.15) : 0), a };
 }
 function peligro(c, i) {
   // ¿le vendría bien al siguiente jugador? (nivel difícil)
@@ -727,7 +730,7 @@ function mejorCierre(mano8, prohibida) {
    Solo usa información que una jugadora atenta conoce: su mano, el montón,
    las cartas que cada rival ha cogido del montón (y no ha soltado) y, tras
    rebarajar, qué cartas forman el mazo nuevo. Nunca mira cartas ocultas. */
-const TX = { pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1, wRaya: 25, limiteReal: 0 };
+const TX = { pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1, wRaya: 25, limiteReal: 0, wPrisa: 6, bajaValor: 0.9, prisaDesde: 6, prisaRampa: 3 };
 function poolMazo(i) {
   // cartas que pueden salir del mazo
   const fuera = new Set(G.jugadores[i].mano.map(c => c.id));
@@ -943,6 +946,21 @@ function conPesos(i, f) {
   PS = p.pesos || PD;
   try { return f(); } finally { PS = prev; }
 }
+// ¿Qué cartas pueden salir todavía? Tras rebarajar, el mazo nuevo son las que ya salieron al montón:
+// las que nunca salieron están en manos de otras y no van a llegar
+function cartasQuePuedenSalir() {
+  if (!G.reciclado) return null;
+  const ids = new Set(G.reciclado), m = new Set();
+  for (const c of G.todas) if (!c.j && ids.has(c.id)) m.add(c.s + '-' + c.r);
+  for (const c of G.descarte) if (!c.j) m.add(c.s + '-' + c.r);
+  return m;
+}
+// Prisa: si la mano se alarga (más de 6 vueltas) o se rebaraja el montón, importa más poder cerrar que guardar cartas bajas
+function urgencia() {
+  if (!G || !G.turnos) return 0;
+  const v = G.turnos / Math.max(1, activos().length);
+  return Math.max(G.reciclado ? 0.5 : 0, Math.min(1, (v - TX.prisaDesde) / TX.prisaRampa));
+}
 function iaRobo(i) { return conPesos(i, () => iaRobo_(i)); }
 function iaTirada(i) { return conPesos(i, () => iaTirada_(i)); }
 function iaRobo_(i) {
@@ -958,8 +976,11 @@ function iaRobo_(i) {
   if (nivel === 2) {
     // compara con lo que se espera sacar del mazo (cartas no vistas)
     const conocidas = new Set(p.mano.concat(G.vistas).map(c => c.j ? 'J' + c.id : c.s + '-' + c.r));
-    const noVistas = [];
-    for (let s = 0; s < 4; s++) for (const r of rangos()) if (!conocidas.has(s + '-' + r)) noVistas.push({ id: -1 - noVistas.length, s, r });
+    const noVistas = [], salen = cartasQuePuedenSalir(), mias = new Set(p.mano.map(c => c.s + '-' + c.r));
+    for (let s = 0; s < 4; s++) for (const r of rangos()) {
+      const k = s + '-' + r;
+      if (salen ? (salen.has(k) && !mias.has(k)) : !conocidas.has(k)) noVistas.push({ id: -1 - noVistas.length, s, r });
+    }
     let suma = 0;
     for (const u of noVistas) { const t = mejorTirada(i, p.mano.concat([u]), 1, null); suma += t.v; }
     const esperado = noVistas.length ? suma / noVistas.length : 99;
