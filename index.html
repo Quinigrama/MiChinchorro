@@ -996,7 +996,12 @@ function iaRobo_(i) {
 /* Decide qué tirar y si cierra: {carta, cierra} */
 function iaTirada_(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel), proh = G.cogida;
-  const ci = mejorCierre(p.mano, proh);
+  let ci = mejorCierre(p.mano, proh);
+  // No cerrar si con esos puntos me paso del límite (me apuntaría yo la raya)
+  if (ci && ci.a.muertos > 0 && p.puntos + ci.a.muertos > S.limite) {
+    const ch = esChinchon(p.mano.filter(x => x !== ci.c));
+    if (!(ch && ch.limpio)) ci = null;
+  }
   if (ci && nivel === 3 && TX.mc && TX.decideCierre && ci.a.muertos > 0) {
     const ch = esChinchon(p.mano.filter(x => x !== ci.c));
     if (!(ch && ch.limpio)) {
