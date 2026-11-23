@@ -12,10 +12,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Chinchorro">
 <style>
-:root{--tapete:#1d5a37;--tapete2:#123d25;--crema:#fff8e7;--oro:#f2c14e;--rojo:#c62828;--txt:#fffdf5;--panel:rgba(0,0,0,.28)}
+:root{--tapete0:#2a7a4b;--tapete:#1d5a37;--tapete2:#123d25;--dorso1:#a3262a;--dorso2:#8c1f22;--crema:#fff8e7;--oro:#f2c14e;--rojo:#c62828;--txt:#fffdf5;--panel:rgba(0,0,0,.28)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;min-height:100%}html{background:#123d25}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--txt);background:radial-gradient(ellipse at 50% 30%,#2a7a4b 0%,var(--tapete) 45%,var(--tapete2) 100%) no-repeat #123d25;font-size:19px;line-height:1.35;user-select:none;-webkit-user-select:none}
+html,body{margin:0;min-height:100%}html{background:var(--tapete2)}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--txt);background:radial-gradient(ellipse at 50% 30%,var(--tapete0) 0%,var(--tapete) 45%,var(--tapete2) 100%) no-repeat var(--tapete2);font-size:19px;line-height:1.35;user-select:none;-webkit-user-select:none}
 button{font:inherit;cursor:pointer;border:0;border-radius:14px}
 .oculto{display:none!important}
 section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom))}
@@ -73,7 +73,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .porrival .fr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
 .seg.chico{flex-wrap:nowrap}.seg.chico button{min-width:46px;padding:9px 6px;font-size:19px}
 .avnv{position:relative;flex:0 0 auto;display:inline-block}
-.avnv .nv{position:absolute;right:-5px;bottom:-4px;font-size:12px;line-height:1;background:#123d25;border-radius:50%;padding:2px}
+.avnv .nv{position:absolute;right:-5px;bottom:-4px;font-size:12px;line-height:1;background:var(--tapete2);border-radius:50%;padding:2px}
 .pila{position:fixed;z-index:40;pointer-events:none}
 .pila .carta{position:absolute;inset:0;width:100%}
 .pila.encima{z-index:43}
@@ -86,7 +86,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .rival .barrita i{display:block;height:100%;background:linear-gradient(90deg,#7bd389,#f2c14e,#e5533d)}
 .rival .ult{font-size:13px;opacity:.85;height:2.5em;line-height:1.25;overflow:hidden}
 .dorsos{display:flex;height:22px}
-.dorsos i{width:13px;height:20px;border-radius:3px;background:#a3262a;border:1.5px solid #fff3d6;margin-right:-6px}
+.dorsos i{width:13px;height:20px;border-radius:3px;background:var(--dorso1);border:1.5px solid #fff3d6;margin-right:-6px}
 .mesa{display:flex;justify-content:center;align-items:flex-end;gap:26px;padding:4px 0}
 .monton{text-align:center;font-size:15px;font-weight:700}
 .monton .carta,.monton .vacio{width:var(--mw,72px);margin:0 auto 4px}
@@ -124,7 +124,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .carta .banda{position:absolute;left:-2px;right:-2px;bottom:-2px;height:9cqw;border-radius:0 0 9px 9px}
 .carta.volteada{animation:voltear .35s}
 @keyframes voltear{0%{transform:rotateY(90deg)}100%{transform:none}}
-.carta.dorso{background:repeating-linear-gradient(45deg,#a3262a 0 6px,#8c1f22 6px 12px);border-color:#fff3d6}
+.carta.dorso{background:repeating-linear-gradient(45deg,var(--dorso1) 0 6px,var(--dorso2) 6px 12px);border-color:#fff3d6}
 .carta.dorso::before{content:"MC";position:absolute;inset:18%;border:2px solid #fff3d6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff3d6;font-weight:900;font-size:22cqw}
 .carta.comodin .jk{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:44cqw}
 .carta.comodin .jk small{font-size:13cqw;font-weight:900;color:#6a1b9a;margin-top:4cqw}
@@ -138,7 +138,7 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 
 /* ---------- Ventana ---------- */
 .velo{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:20}
-.ventana{background:#123d25;border:2px solid rgba(255,255,255,.18);border-radius:22px 22px 0 0;width:min(760px,100%);max-height:92vh;overflow:auto;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
+.ventana{background:var(--tapete2);border:2px solid rgba(255,255,255,.18);border-radius:22px 22px 0 0;width:min(760px,100%);max-height:92vh;overflow:auto;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
 @media (min-width:700px){.velo{align-items:center}.ventana{border-radius:22px}}
 .ventana h2{margin:0 0 6px;font-size:26px;text-align:center}
 .ventana .sub{text-align:center;font-size:19px;margin-bottom:10px}
@@ -312,7 +312,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, precioChinchon: 1, colgar: true, chinchonGana: true,
-  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
+  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', reverso: 'rojo', niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
 // Azar criptográfico del navegador: cualquier orden de la baraja es posible e imprevisible
@@ -1146,6 +1146,9 @@ const OPC = [
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
   { k: 'barajado', t: 'Forma de barajar', op: [['real', '7 mezclas de verdad'], ['azar', 'Rápido (3 vueltas)']] },
   { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
+  { k: 'sonido', t: 'Sonido 🔊', op: [[0, 'No'], [1, 'Efectos'], [2, 'Efectos y voces']] },
+  { k: 'tapete', t: 'Tapete', op: [['verde', '🟩 Verde'], ['azul', '🟦 Azul'], ['granate', '🟥 Granate'], ['madera', '🟫 Madera'], ['noche', '⬛ Noche']] },
+  { k: 'reverso', t: 'Reverso de las cartas', op: [['rojo', '🟥 Rojo'], ['azul', '🟦 Azul'], ['verde', '🟩 Verde'], ['morado', '🟪 Morado'], ['negro', '⬛ Negro']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { h: 'Dinero y puntos' },
   { k: 'raya', t: 'Cada raya vale (se apunta al pasarse)', op: [[0.1, '0,10 €'], [0.2, '0,20 €'], [0.5, '0,50 €'], [1, '1 €']] },
@@ -1222,7 +1225,8 @@ function pintarAjustes() {
     else if (b.dataset.nivelde) { PREF.nivelDe = Object.assign({}, PREF.nivelDe, { [b.dataset.nivelde]: +b.dataset.v }); }
     else if (b.dataset.rival !== undefined) { const nv = (PREF.niveles || []).slice(); for (let k = 0; k < 4; k++) if (nv[k] == null) nv[k] = PREF.nivel; nv[+b.dataset.rival] = +b.dataset.v; PREF.niveles = nv; }
     else { PREF[b.dataset.k] = JSON.parse(b.dataset.v); if (b.dataset.k === 'nivel') { PREF.niveles = null; PREF.nivelDe = {}; } }
-    LS.set('mc-ajustes2', PREF); pintarAjustes();
+    LS.set('mc-ajustes2', PREF); aplicarTema(); pintarAjustes();
+    if (b.dataset.k === 'sonido' && PREF.sonido > 0) { sonar('carta'); if (PREF.sonido === 2) setTimeout(() => hablar('Matilde', '¿Quién juga?'), 300); }
   });
   $('opciones').querySelectorAll('input').forEach(i => { i.oninput = () => { PREF[i.dataset.k] = i.value; if (i.dataset.k === 'nombre') PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); }; i.onchange = () => pintarAjustes(); });
 }
@@ -1370,6 +1374,7 @@ const ava = (p, cls = '') => `<span class="avatar ${cls}">${conInicial(p.nombre,
 /* ---------- Cartas que vuelan por la mesa ---------- */
 const VUELO = () => [950, 700, 420][S.velocidad];
 function volar(desde, hasta, html, ms) {
+  sonar('carta');
   return new Promise(res => {
     if (!desde || !hasta || document.hidden) return res();
     const a = desde.getBoundingClientRect(), b = hasta.getBoundingClientRect();
@@ -1450,6 +1455,7 @@ function bocadillo(i, f) {
   document.querySelectorAll(`.bocadillo[data-i="${i}"]`).forEach(b => b.remove());
   const b = document.createElement('div');
   b.className = 'bocadillo'; b.dataset.i = i; b.textContent = f;
+  if (G && G.jugadores[i] && !G.jugadores[i].humano && !G.jugadores[i].remoto && !G.jugadores[i].uid) hablar(G.jugadores[i].nombre, f);
   document.body.appendChild(b);
   const r = caja.getBoundingClientRect(), bw = b.offsetWidth;
   const cx = r.left + r.width / 2;
@@ -1481,7 +1487,85 @@ function reacciones(res) {
 /* ---------- Vibración ---------- */
 // No se puede elegir la fuerza, solo la duración: suave = toque corto; cierre = doble toque algo más largo
 const VIBRA = { turno: 35, cierre: [110, 70, 110] };
-function vibrar(tipo) { if (PREF.vibrar === false || !navigator.vibrate) return; try { navigator.vibrate(VIBRA[tipo]); } catch (e) {} }
+function vibrar(tipo) { sonar(tipo === 'cierre' ? 'golpe' : tipo); if (PREF.vibrar === false || !navigator.vibrate) return; try { navigator.vibrate(VIBRA[tipo]); } catch (e) {} }
+/* ---------- Tapete y reverso ---------- */
+const TAPETES = { verde: ['#2a7a4b', '#1d5a37', '#123d25'], azul: ['#3a6fb0', '#24507f', '#14304f'], granate: ['#93323f', '#6d2230', '#43141d'], madera: ['#94633a', '#6d4627', '#432a17'], noche: ['#3d4656', '#2a303c', '#171b22'] };
+const REVERSOS = { rojo: ['#a3262a', '#8c1f22'], azul: ['#1f4f9a', '#183d78'], verde: ['#1f6b3a', '#17542d'], morado: ['#6a2c91', '#53216f'], negro: ['#2e2e2e', '#1b1b1b'] };
+function aplicarTema() {
+  const t = TAPETES[PREF.tapete] || TAPETES.verde, r = REVERSOS[PREF.reverso] || REVERSOS.rojo, st = document.documentElement.style;
+  st.setProperty('--tapete0', t[0]); st.setProperty('--tapete', t[1]); st.setProperty('--tapete2', t[2]);
+  st.setProperty('--dorso1', r[0]); st.setProperty('--dorso2', r[1]);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t[2];
+}
+aplicarTema();
+/* ---------- Sonidos (sintetizados: sin archivos) ---------- */
+const SON = (() => {
+  let ctx = null, ruidoBuf = null;
+  const ac = () => {
+    if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C(); }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  };
+  const ruido = () => {
+    if (ruidoBuf) return ruidoBuf;
+    const c = ac(), n = c.sampleRate * 0.5; ruidoBuf = c.createBuffer(1, n, c.sampleRate);
+    const d = ruidoBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    return ruidoBuf;
+  };
+  // golpecito de cartón: ruido filtrado muy corto
+  const roce = (t, dur = 0.06, f = 2400, v = 0.25) => {
+    const c = ac(), s = c.createBufferSource(), fi = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = ruido(); fi.type = 'bandpass'; fi.frequency.value = f; fi.Q.value = 0.9;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(fi).connect(g).connect(c.destination); s.start(t, Math.random() * 0.3); s.stop(t + dur + 0.02);
+  };
+  const tono = (t, f, dur, v = 0.12, tipo = 'sine') => {
+    const c = ac(), o = c.createOscillator(), g = c.createGain();
+    o.type = tipo; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+  };
+  return {
+    ac,
+    carta() { const c = ac(); if (c) roce(c.currentTime, 0.07, 2200 + Math.random() * 900, 0.22); },
+    mezcla() { const c = ac(); if (!c) return; const t = c.currentTime; for (let k = 0; k < 14; k++) roce(t + k * 0.022 + Math.random() * 0.01, 0.035, 3000 + Math.random() * 1500, 0.13); },
+    turno() { const c = ac(); if (!c) return; const t = c.currentTime; tono(t, 880, 0.18, 0.07); tono(t + 0.12, 1320, 0.25, 0.06); },
+    golpe() { const c = ac(); if (!c) return; const t = c.currentTime; for (const d of [0, 0.16]) { tono(t + d, 140, 0.12, 0.35, 'triangle'); roce(t + d, 0.05, 900, 0.3); } },
+    chinchon() { const c = ac(); if (!c) return; const t = c.currentTime; [523, 659, 784, 1047].forEach((f, k) => tono(t + k * 0.12, f, 0.35, 0.1, 'triangle')); },
+    raya() { const c = ac(); if (!c) return; const t = c.currentTime; tono(t, 392, 0.25, 0.09, 'triangle'); tono(t + 0.2, 294, 0.4, 0.09, 'triangle'); }
+  };
+})();
+function sonar(tipo) { if (!(PREF.sonido > 0) || document.hidden) return; try { SON[tipo] && SON[tipo](); } catch (e) {} }
+document.addEventListener('pointerdown', () => { if (PREF.sonido > 0) try { SON.ac(); } catch (e) {} }, { passive: true });
+/* ---------- Voces: cada personaje con su voz, su tono y su ritmo ---------- */
+const VOCES_P = { MCarmen: ['f', 1.05, 0.95], Matilde: ['f', 0.92, 0.9], Elvira: ['f', 1.25, 1.05], Pepita: ['f', 1.15, 1.0],
+  Pedro: ['m', 0.85, 1.0], 'Andrés': ['m', 0.95, 0.92], Manolo: ['m', 0.72, 0.9], Lucas: ['m', 1.02, 1.08] };
+const NOMBRES_M = /(jorge|pablo|diego|carlos|enrique|juan|alvaro|álvaro|raul|raúl|miguel|antonio|male|hombre|masculin|x-eed|x-eef)/i;
+const NOMBRES_F = /(helena|laura|luc[ií]a|m[oó]nica|paulina|marisol|sabina|esperanza|dalia|conchita|pen[eé]lope|lupe|elvira|female|mujer|femenin|x-eea|x-eec|x-eee)/i;
+function vozDe(gen) {
+  const vs = (window.speechSynthesis && speechSynthesis.getVoices() || []).filter(v => /^es/i.test(v.lang));
+  if (!vs.length) return null;
+  const esp = vs.filter(v => /es[-_]ES/i.test(v.lang)), base = esp.length ? esp : vs;
+  const re = gen === 'm' ? NOMBRES_M : NOMBRES_F;
+  return base.find(v => re.test(v.name)) || vs.find(v => re.test(v.name)) || base[0];
+}
+function hablar(nombre, texto) {
+  if (PREF.sonido !== 2 || !window.speechSynthesis || document.hidden) return;
+  const limpio = String(texto).replace(/[\p{Extended_Pictographic}️‍]/gu, '').replace(/\s+/g, ' ').trim();
+  if (!limpio) return;
+  let pf = VOCES_P[nombre];
+  if (!pf) { let h = 0; for (const ch of String(nombre)) h = (h * 31 + ch.charCodeAt(0)) | 0; const f = /a$/i.test(nombre); pf = [f ? 'f' : 'm', (f ? 1.1 : 0.85) + ((h & 7) - 3) * 0.03, 1]; }
+  const [gen, tono, ritmo] = pf, v = vozDe(gen);
+  const u = new SpeechSynthesisUtterance(limpio);
+  u.lang = v ? v.lang : 'es-ES'; if (v) u.voice = v;
+  // si la voz no es del género, se compensa con el tono
+  const acierta = v && (gen === 'm' ? NOMBRES_M : NOMBRES_F).test(v.name);
+  u.pitch = Math.max(0.1, Math.min(2, acierta ? tono : tono * (gen === 'm' ? 0.78 : 1.12)));
+  u.rate = ritmo; u.volume = 0.9;
+  if (speechSynthesis.speaking && speechSynthesis.pending) speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices(); }
 
 /* ---------- Estadísticas de la jugadora ---------- */
 const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinchones: 0, puntos: 0, pillada: 0, figurasPilladas: 0, rayas: 0, euros: 0, tiradas: 0, mejorables: 0, cierresPerdidos: 0, cogidasMonton: 0, cogidasUtiles: 0, desde: null };
@@ -1699,6 +1783,7 @@ async function animarBarajar(rect, texto) {
   const n = cuantasMezclas() || 3, ms = 260 * RITMO() * (n > 3 ? 0.55 : 1);
   for (let vuelta = 0; vuelta < n && !saltarReparto; vuelta++) {
     if (texto && n > 3) mensaje(`${texto} · mezcla ${vuelta + 1} de ${n}`);
+    sonar('mezcla');
     const sep = rect.width * 0.62;
     await Promise.all([
       izq.animate([{ transform: 'none' }, { transform: `translateX(${-sep}px) rotate(-10deg)` }], { duration: ms, fill: 'forwards', easing: 'ease-out' }).finished,
@@ -2100,6 +2185,8 @@ function finMano(res, habla, pausa) {
 function minis(cartas, cls) { return cartas.length ? `<div class="gr ${cls || ''}">${cartas.map(c => htmlCarta(c)).join('')}</div>` : ''; }
 function mostrarResultado(res) {
   const quien = G.jugadores[res.cierra];
+  if (res.chinchon) sonar('chinchon');
+  else if (res.filas.some(f => f.i === YO && f.raya)) setTimeout(() => sonar('raya'), 400);
   if (res.finPartida && res.chinchon && res.chinchon.limpio && S.chinchonGana) return finPartida(`¡CHINCHÓN de ${quien.humano ? 'ti' : quien.nombre}!`);
   const f0 = res.filas[0];
   let titulo = quien.humano ? (f0.puntos === -10 ? '¡Cierras con todo ligado! −10 🎉' : 'Has cerrado tú 👏') : `${quien.nombre} cierra${f0.puntos === -10 ? ' con −10' : ''}`;
