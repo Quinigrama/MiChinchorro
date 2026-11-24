@@ -966,7 +966,7 @@ function urgencia() {
 const MANIAS = {
   'Andrés': { id: 'prudente', t: 'el prudente', pesos: { kPot: 0.35, pel: 1.2, alta: 0.35 } },     // cierra en cuanto puede y no se carga de cartas
   'Lucas': { id: 'arriesgado', t: 'el arriesgado', pesos: { kPot: 1.1 } },             // va a por el −10: no cierra pronto con puntos
-  'Matilde': { id: 'monton', t: 'la del montón', pesos: {} }                            // coge del montón lo que le arrime algo
+  'Matilde': { id: 'monton', t: 'la ojo avizor', pesos: {} }                            // coge del montón lo que le arrime algo
 };
 function maniaDe(p) { return (!p || p.humano || p.remoto || S.manias === false) ? null : (MANIAS[p.nombre] || null); }
 function arrima(mano, c) {   // ¿la carta hace jugada, pareja o escalerita con algo de la mano?
@@ -1200,7 +1200,7 @@ const OPC = [
   { k: 'perfil', t: 'Quién eres', perfil: true },
   { k: 'mesa', t: 'Con quién juegas', mesa: true },
   { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
-  { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la del montón)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
+  { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la ojo avizor)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
