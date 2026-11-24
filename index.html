@@ -1770,9 +1770,11 @@ function pintarEstad() {
       ${tile(e.rayas, 'rayas apuntadas')}${tile(euros(e.euros), e.euros >= 0 ? 'ganados' : 'perdidos', e.euros >= 0 ? 'bien' : 'mal')}${tile(euros(saldo), 'en el monedero')}
     </div></div>
     <div class="grupo"><h3>🏆 Liga de niveles</h3>${pintarLiga(e)}</div>
+    <div class="grupo"><h3>🧠 Estilo de cada jugador</h3><div id="perfil"><div class="nota">Cargando…</div></div></div>
     <div class="grupo"><h3>💡 Tus consejos</h3><ul class="consejos">${consejosPersonales(e).map(x => `<li>${x}</li>`).join('')}</ul>
       ${e.desde ? `<div class="nota">Desde el ${e.desde.split('-').reverse().join('/')}</div>` : ''}
       <div class="nota">${enCuenta() ? '☁️ Suma de todos tus aparatos con tu cuenta de Google' : NUBE_OK ? 'Solo de este aparato. Entra con Google para juntar las de todos tus aparatos.' : ''}</div></div>`;
+  pintarPerfil();
 }
 $('bEstad').onclick = () => { ir('estad'); subirNube(); };
 $('bBorrarEstad').onclick = () => ventana(`<h2>¿Empezar de cero?</h2><div class="sub">Se borran las estadísticas${enCuenta() ? ' de todos tus aparatos' : ''} (el monedero no).</div>`,
@@ -2298,6 +2300,101 @@ function regFin(res) {
     const q = LS.get(REG_K, []); q.push(r); while (q.length > REG_MAX) q.shift(); LS.set(REG_K, q);
     subirRegistro();
   } catch (e) { console.warn('registro', e); }
+}
+/* ---- Perfil (estilo) de cada jugador, a partir del registro ----
+   Personas por su cuenta de Google (o por nombre si no la hay); bots por nivel. */
+const escapar = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const PERFIL_K = 'mc-perfil', NIV_N = ['Fácil', 'Normal', 'Difícil', 'Experta'];
+const valCod = x => x === '*' ? 25 : Math.min(10, parseInt(x, 10) || 0);
+const claveJ = j => j.h ? (j.u ? 'u:' + j.u : 'n:' + j.n) : 'nv:' + j.nv;
+const perfil0 = (j) => ({ n: j.n, h: j.h, nv: j.nv, manos: 0, rD: 0, rM: 0, tir: 0, vTir: 0, altas: 0, bajas: 0, cierres: 0, m10: 0, ch: 0, tCierre: 0, pill: 0, pPill: 0, bajasG: 0, colg: 0, cogeTira: 0 });
+function sumarMano(A, r) {
+  const fin = r && r.fin; if (!fin || fin.nula || !r.js || !r.ev) return;
+  const st = {};
+  r.js.forEach((j, i) => {
+    if (j.f) return;
+    const k = claveJ(j), a = A[k] || (A[k] = perfil0(j));
+    if (j.h && j.n) a.n = j.n;
+    a.manos++; st[i] = { a, turnos: 0, cogidas: new Set() };
+  });
+  for (const e of r.ev) {
+    const m = /^(\d+)([MDTC])(.*)$/.exec(e); if (!m) continue;
+    const s = st[m[1]]; if (!s) continue;
+    const a = s.a, c = m[3];
+    if (m[2] === 'M') { a.rM++; s.turnos++; }
+    else if (m[2] === 'D') { a.rD++; s.turnos++; s.cogidas.add(c); }
+    else if (m[2] === 'T') { const v = valCod(c); a.tir++; a.vTir += v; if (v >= 10) a.altas++; if (v <= 3) a.bajas++; if (s.cogidas.has(c)) a.cogeTira++; }
+    else if (m[2] === 'C') { a.cierres++; a.tCierre += s.turnos; }
+  }
+  const lista = x => x ? x.split(' ').filter(Boolean) : [];
+  for (const f of fin.f || []) {
+    const s = st[f.i]; if (!s) continue; const a = s.a;
+    if (f.i === fin.c) { if (f.p === -10) a.m10++; if (fin.ch) a.ch++; }
+    else { a.pill++; a.pPill += f.p; a.bajasG += lista(f.s).filter(x => x !== '*' && parseInt(x, 10) <= 2).length; a.colg += lista(f.cg).length; }
+  }
+}
+const claveReg = r => r.t + '-' + r.m + '-' + (r.ap || '');
+async function datosPerfil() {
+  const P = LS.get(PERFIL_K, null) || { v: 1, hasta: 0, A: {}, vistos: [] };
+  const N = window.Nube;
+  if (N && N.usuario && N.bajarJugadas) {
+    try {
+      for (let vuelta = 0; vuelta < 10; vuelta++) {
+        const docs = await N.bajarJugadas(P.hasta, 500);
+        for (const d of docs) { sumarMano(P.A, d); P.hasta = Math.max(P.hasta, d.subidoMs || 0); P.vistos.push(d.t + '-' + d.m); }
+        if (docs.length < 500) break;
+      }
+      P.vistos = P.vistos.slice(-600);
+      LS.set(PERFIL_K, P);
+    } catch (e) { console.warn('perfil', e && e.code || e); }
+  }
+  // más las manos de este móvil que aún no se han subido
+  const A = JSON.parse(JSON.stringify(P.A)), vistos = new Set(P.vistos);
+  for (const r of LS.get(REG_K, [])) if (!vistos.has(r.t + '-' + r.m)) sumarMano(A, r);
+  return A;
+}
+const pc = (a, b) => b ? Math.round(100 * a / b) : null;
+function rasgosDe(a, ref) {
+  const t = [], r = (x, y) => y ? x / y : null;
+  const mon = r(a.rD, a.rD + a.rM), monR = r(ref.rD, ref.rD + ref.rM);
+  if (mon != null && monR != null) { if (mon > monR + 0.08) t.push('🙋 coge mucho del montón'); else if (mon < monR - 0.08) t.push('🎴 casi siempre roba del mazo'); }
+  const vt = r(a.vTir, a.tir), vtR = r(ref.vTir, ref.tir);
+  if (vt != null && vtR != null) { if (vt > vtR + 0.8) t.push('👑 se quita las figuras enseguida'); else if (vt < vtR - 0.8) t.push('🎲 suelta cartas bajas y se guarda las altas'); }
+  const tc = r(a.tCierre, a.cierres), tcR = r(ref.tCierre, ref.cierres);
+  if (a.cierres >= 5 && tc != null && tcR != null) { if (tc < tcR - 0.8) t.push('⚡ cierra pronto'); else if (tc > tcR + 1.2) t.push('⏳ espera para cerrar'); }
+  const m = r(a.m10, a.cierres), mR = r(ref.m10, ref.cierres);
+  if (a.cierres >= 5 && m != null && mR != null && m > mR + 0.12) t.push('💃 le encanta el −10');
+  const bg = r(a.bajasG, a.pill), bgR = r(ref.bajasG, ref.pill);
+  if (a.pill >= 5 && bg != null && bgR != null && bg > bgR + 0.35) t.push('🪙 guarda ases y doses');
+  const ct = r(a.cogeTira, a.rD);
+  if (a.rD >= 8 && ct != null && ct > 0.25) t.push('🕵️ coge del montón y luego lo suelta (despista)');
+  const pp = r(a.pPill, a.pill), ppR = r(ref.pPill, ref.pill);
+  if (a.pill >= 5 && pp != null && ppR != null) { if (pp < ppR - 4) t.push('🛡️ cuando la pillan, se come pocos puntos'); else if (pp > ppR + 5) t.push('🍽️ cuando la pillan, se come muchos puntos'); }
+  return t;
+}
+async function pintarPerfil() {
+  const caja = $('perfil'); if (!caja) return;
+  let A; try { A = await datosPerfil(); } catch (e) { A = {}; }
+  if (!$('perfil')) return;
+  const filas = Object.entries(A).map(([k, a]) => Object.assign({ k }, a)).filter(a => a.manos);
+  if (!filas.length) { caja.innerHTML = '<div class="nota">Todavía no hay manos apuntadas. Se apuntan solas al jugar (desde esta versión).</div>'; return; }
+  const ref = perfil0({}); for (const a of filas) for (const x in ref) if (typeof ref[x] === 'number' && typeof a[x] === 'number') ref[x] += a[x];
+  const yoK = new Set(['u:' + (miUid() || '-'), 'n:' + (PREF.nombre || '-')]);
+  const gente = filas.filter(a => a.h).sort((x, y) => y.manos - x.manos).slice(0, 10);
+  const bots = filas.filter(a => !a.h).sort((x, y) => (x.nv ?? 0) - (y.nv ?? 0));
+  const num = (x, d = 1) => x == null ? '–' : (+x).toLocaleString('es-ES', { maximumFractionDigits: d });
+  const dv = (x, y) => y ? x / y : null;
+  const fila = (a, nombre) => `<tr><td>${nombre}</td><td>${a.manos}</td><td>${pc(a.rD, a.rD + a.rM) ?? '–'}${a.rD + a.rM ? ' %' : ''}</td><td>${num(dv(a.vTir, a.tir))}</td><td>${num(dv(a.tCierre, a.cierres))}</td><td>${pc(a.m10, a.cierres) ?? '–'}${a.cierres ? ' %' : ''}</td><td>${num(dv(a.pPill, a.pill))}</td></tr>`;
+  const tabla = `<table class="liga"><tr><th>Jugador</th><th>Manos</th><th>Del montón</th><th>Tira (valor)</th><th>Cierra a los</th><th>−10</th><th>Pillada</th></tr>
+    ${gente.map(a => fila(a, (yoK.has(a.k) ? '🙋 ' : '') + escapar(a.n || 'Persona'))).join('')}
+    ${bots.map(a => fila(a, '🤖 ' + (NIV_N[a.nv] || 'Bot'))).join('')}</table>
+    <div class="nota">«Del montón»: de cada 100 robos, cuántos coge del montón. «Tira»: valor medio de lo que tira. «Cierra a los»: turnos suyos hasta cerrar. «−10»: de sus cierres. «Pillada»: puntos que se come cuando cierra otra.</div>`;
+  const fichas = gente.map(a => {
+    const t = a.manos >= 30 ? rasgosDe(a, ref) : [];
+    const txt = a.manos < 30 ? `Pocas manos todavía (${a.manos} de 30) para sacar conclusiones.` : t.length ? t.join(' · ') : 'Juega muy parecido a la media de la mesa.';
+    return `<div class="nota" style="text-align:left;margin-top:6px"><b>${yoK.has(a.k) ? '🙋 ' : ''}${escapar(a.n || 'Persona')}:</b> ${txt}</div>`;
+  }).join('');
+  caja.innerHTML = tabla + fichas;
 }
 let subiendoReg = false;
 async function subirRegistro() {
@@ -3322,7 +3419,13 @@ async function subirJugadas(lista) {
   for (const r of lista) b.set(fb.fs.doc(fb.fs.collection(fb.db, 'jugadas')), Object.assign({}, r, { uid: usuario.uid, ap, subido: fb.fs.serverTimestamp() }));
   await b.commit();
 }
-window.Nube = { cargar, entrar, salir, subir, records, subirJugadas, get usuario() { return usuario; }, get red() { return fb ? red : null; } };
+async function bajarJugadas(desdeMs, n) {
+  if (!usuario || !fb) throw new Error('sin sesión');
+  const f = fb.fs, q = f.query(f.collection(fb.db, 'jugadas'), f.where('subido', '>', f.Timestamp.fromMillis(desdeMs || 0)), f.orderBy('subido'), f.limit(n || 500));
+  const s = await f.getDocs(q);
+  return s.docs.map(x => { const d = x.data(); d.subidoMs = d.subido && d.subido.toMillis ? d.subido.toMillis() : 0; return d; });
+}
+window.Nube = { cargar, entrar, salir, subir, records, subirJugadas, bajarJugadas, get usuario() { return usuario; }, get red() { return fb ? red : null; } };
 try { if (localStorage.getItem('mc-nube') === '1' && navigator.onLine) cargar().catch(() => {}); } catch (e) {}
 </script>
 </body>
