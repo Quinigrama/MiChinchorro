@@ -324,7 +324,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, precioChinchon: 1, colgar: true, chinchonGana: true,
-  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', reverso: 'rojo', niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
+  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', reverso: 'rojo', manias: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
 // Azar criptográfico del navegador: cualquier orden de la baraja es posible e imprevisible
@@ -706,8 +706,8 @@ function mejorTirada(i, mano8, nivel, prohibida) {
     if (c.j && mano8.some(x => !x.j && x.id !== prohibida)) continue; // no tira comodines
     const resto = mano8.filter(x => x !== c);
     const e = evaluar(resto, nivel);
-    let v = e.v - valor(c) * 0.01;
-    if (nivel === 2) v += peligro(c, i) * PS.pel;
+    let v = e.v - valor(c) * (0.01 + (PS.alta || 0));   // el prudente prefiere soltar lo que más pesa
+    if (nivel === 2 || (nivel > 0 && PS.pelR > PD.pelR)) v += peligro(c, i) * PS.pel;
     if (!mejor || v < mejor.v) mejor = { c, v, a: e.a };
   }
   return mejor;
@@ -914,7 +914,7 @@ function tiradaMC(i, mano8, prohibida) {
     if (c.id === prohibida) continue;
     if (c.j && mano8.some(x => !x.j && x.id !== prohibida)) continue;
     const e = evaluar(mano8.filter(x => x !== c), 2);
-    lista.push({ c, v: e.v - valor(c) * 0.01 + peligro(c, i) * 0.6 });
+    lista.push({ c, v: e.v - valor(c) * (0.01 + (PS.alta || 0)) + peligro(c, i) * PS.pel });
   }
   lista.sort((a, b) => a.v - b.v);
   const cand = lista.slice(0, TX.cand);
@@ -927,6 +927,7 @@ function tiradaMC(i, mano8, prohibida) {
   }
   if (cand.length <= 1) return cand[0];
   const vals = evaluarOpciones(i, cand.map(x => () => { tirar(i, x.c.id); }));
+  if (PS.pelR > PD.pelR) cand.forEach((x, k) => { vals[k] += peligro(x.c, i) * 1.5; });   // el vigilante: antes perder un poco que dar carta
   let mejor = 0; vals.forEach((v, k) => { if (v < vals[mejor]) mejor = k; });
   return cand[mejor];
 }
@@ -942,8 +943,8 @@ function roboMC(i) {
 
 /* Decide el robo: true = coger del descarte */
 function conPesos(i, f) {
-  const p = G.jugadores[i], prev = PS;
-  PS = p.pesos || PD;
+  const p = G.jugadores[i], prev = PS, m = maniaDe(p);
+  PS = p.pesos || (m ? Object.assign({}, PD, m.pesos) : PD);
   try { return f(); } finally { PS = prev; }
 }
 // ¿Qué cartas pueden salir todavía? Tras rebarajar, el mazo nuevo son las que ya salieron al montón:
@@ -961,7 +962,24 @@ function urgencia() {
   const v = G.turnos / Math.max(1, activos().length);
   return Math.max(G.reciclado ? 0.5 : 0, Math.min(1, (v - TX.prisaDesde) / TX.prisaRampa));
 }
-function iaRobo(i) { return conPesos(i, () => iaRobo_(i)); }
+/* ---- Manías: 3 personajes juegan a su manera; MCarmen, Elvira, Pepita, Pedro y Manolo juegan «de libro» (grupo de control) ---- */
+const MANIAS = {
+  'Andrés': { id: 'prudente', t: 'el prudente', pesos: { kPot: 0.35, pel: 1.2, alta: 0.35 } },     // cierra en cuanto puede y no se carga de cartas
+  'Lucas': { id: 'arriesgado', t: 'el arriesgado', pesos: { kPot: 1.1 } },             // va a por el −10: no cierra pronto con puntos
+  'Matilde': { id: 'monton', t: 'la del montón', pesos: {} }                            // coge del montón lo que le arrime algo
+};
+function maniaDe(p) { return (!p || p.humano || p.remoto || S.manias === false) ? null : (MANIAS[p.nombre] || null); }
+function arrima(mano, c) {   // ¿la carta hace jugada, pareja o escalerita con algo de la mano?
+  if (c.j) return true;
+  if (analizar(mano.concat([c])).muertos < analizar(mano).muertos + valor(c)) return true;   // liga con algo
+  return valor(c) <= 7 && mano.some(x => !x.j && (x.r === c.r || (x.s === c.s && Math.abs(rIdx(x.r) - rIdx(c.r)) <= 1)));   // pareja o seguida, si no pesa mucho
+}
+function iaRobo(i) {
+  const m = maniaDe(G.jugadores[i]);
+  const top = G.descarte[G.descarte.length - 1];
+  if (m && m.id === 'monton' && top && arrima(G.jugadores[i].mano, top)) return true;
+  return conPesos(i, () => iaRobo_(i));
+}
 function iaTirada(i) { return conPesos(i, () => iaTirada_(i)); }
 function iaRobo_(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel);
@@ -1002,6 +1020,9 @@ function iaTirada_(i) {
     const ch = esChinchon(p.mano.filter(x => x !== ci.c));
     if (!(ch && ch.limpio)) ci = null;
   }
+  const mn = maniaDe(p);
+  if (ci && mn && mn.id === 'arriesgado' && ci.a.muertos >= 2 && urgencia() < 0.5 && G.turnos < activos().length * 4) ci = null;   // espera al −10
+  if (ci && mn && mn.id === 'prudente') return { carta: ci.c, cierra: true };   // cierra en cuanto puede
   if (ci && nivel === 3 && TX.mc && TX.decideCierre && ci.a.muertos > 0) {
     const ch = esChinchon(p.mano.filter(x => x !== ci.c));
     if (!(ch && ch.limpio)) {
@@ -1047,7 +1068,7 @@ function simularHastaFinal() {
   return G.ganador;
 }
 
-if (typeof module !== "undefined") module.exports = { PD, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+if (typeof module !== "undefined") module.exports = { PD, MANIAS, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
 </script>
 <script>
@@ -1179,6 +1200,7 @@ const OPC = [
   { k: 'perfil', t: 'Quién eres', perfil: true },
   { k: 'mesa', t: 'Con quién juegas', mesa: true },
   { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
+  { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la del montón)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
@@ -1221,7 +1243,8 @@ function pintarAjustes() {
         const pos = sent.indexOf(n), dentro = pos >= 0 && pos < falta;
         const nv = (PREF.nivelDe || {})[n] ?? PREF.nivel;
         h += `<div class="fr ${dentro ? '' : 'fuera'}"><button class="sentar" data-sentar="${n}" aria-pressed="${dentro}">${avatarSVGmini(n)}${n}${dentro ? ' ✓' : ''}</button>`
-          + (dentro ? `<div class="seg chico">${[[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']].map(([v, l]) => `<button data-nivelde="${n}" data-v="${v}" aria-pressed="${nv === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div>` : '') + '</div>';
+          + (dentro ? `<div class="seg chico">${[[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']].map(([v, l]) => `<button data-nivelde="${n}" data-v="${v}" aria-pressed="${nv === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div>` : '') + '</div>'
+        if (MANIAS[n] && PREF.manias !== false) h += `<div class="nota" style="margin:-4px 0 6px 14px;text-align:left">🎭 ${n} ${MANIAS[n].t}</div>`;
       }
       h += '<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta</div></div></div>';
       continue;
@@ -2276,7 +2299,8 @@ function regMano() {
       cfg: { b: S.baraja, k: S.comodines, l: S.limite, mp: S.maxPuntos, cg: S.colgar ? 1 : 0 },
       js: G.jugadores.map(p => {
         const hum = !!(p.humano || p.remoto);
-        return { n: p.nombre || '', h: hum ? 1 : 0, nv: hum ? null : (p.nivel ?? S.nivel), u: p.remoto ? (p.uid || null) : (p.humano ? (miUid() || null) : null), f: p.fuera ? 1 : 0 };
+        const mn = hum ? null : maniaDe(p);
+        return { n: p.nombre || '', h: hum ? 1 : 0, nv: hum ? null : (p.nivel ?? S.nivel), m: mn ? mn.id : null, u: p.remoto ? (p.uid || null) : (p.humano ? (miUid() || null) : null), f: p.fuera ? 1 : 0 };
       }),
       pts: G.jugadores.map(p => p.puntos), rep: G.reparte, ab: cc(G.descarte[0]), ev: [], rk: '' };
   }
@@ -2306,8 +2330,8 @@ function regFin(res) {
 const escapar = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PERFIL_K = 'mc-perfil', NIV_N = ['Fácil', 'Normal', 'Difícil', 'Experta'];
 const valCod = x => x === '*' ? 25 : Math.min(10, parseInt(x, 10) || 0);
-const claveJ = j => j.h ? (j.u ? 'u:' + j.u : 'n:' + j.n) : 'nv:' + j.nv;
-const perfil0 = (j) => ({ n: j.n, h: j.h, nv: j.nv, manos: 0, rD: 0, rM: 0, tir: 0, vTir: 0, altas: 0, bajas: 0, cierres: 0, m10: 0, ch: 0, tCierre: 0, pill: 0, pPill: 0, bajasG: 0, colg: 0, cogeTira: 0 });
+const claveJ = j => j.h ? (j.u ? 'u:' + j.u : 'n:' + j.n) : j.m ? 'm:' + j.m + ':' + j.nv : 'nv:' + j.nv;
+const perfil0 = (j) => ({ n: j.n, h: j.h, nv: j.nv, m: j.m || null, manos: 0, rD: 0, rM: 0, tir: 0, vTir: 0, altas: 0, bajas: 0, cierres: 0, m10: 0, ch: 0, tCierre: 0, pill: 0, pPill: 0, bajasG: 0, colg: 0, cogeTira: 0 });
 function sumarMano(A, r) {
   const fin = r && r.fin; if (!fin || fin.nula || !r.js || !r.ev) return;
   const st = {};
@@ -2381,18 +2405,19 @@ async function pintarPerfil() {
   const ref = perfil0({}); for (const a of filas) for (const x in ref) if (typeof ref[x] === 'number' && typeof a[x] === 'number') ref[x] += a[x];
   const yoK = new Set(['u:' + (miUid() || '-'), 'n:' + (PREF.nombre || '-')]);
   const gente = filas.filter(a => a.h).sort((x, y) => y.manos - x.manos).slice(0, 10);
-  const bots = filas.filter(a => !a.h).sort((x, y) => (x.nv ?? 0) - (y.nv ?? 0));
+  const bots = filas.filter(a => !a.h).sort((x, y) => ((x.nv ?? 0) - (y.nv ?? 0)) || ((x.m ? 1 : 0) - (y.m ? 1 : 0)));
+  const nomBot = a => a.m ? `🎭 ${escapar(a.n)} ${(Object.values(MANIAS).find(z => z.id === a.m) || {}).t || ''} (${NIV_N[a.nv] || 'bot'})` : '🤖 ' + (NIV_N[a.nv] || 'Bot') + ' de libro';
   const num = (x, d = 1) => x == null ? '–' : (+x).toLocaleString('es-ES', { maximumFractionDigits: d });
   const dv = (x, y) => y ? x / y : null;
   const fila = (a, nombre) => `<tr><td>${nombre}</td><td>${a.manos}</td><td>${pc(a.rD, a.rD + a.rM) ?? '–'}${a.rD + a.rM ? ' %' : ''}</td><td>${num(dv(a.vTir, a.tir))}</td><td>${num(dv(a.tCierre, a.cierres))}</td><td>${pc(a.m10, a.cierres) ?? '–'}${a.cierres ? ' %' : ''}</td><td>${num(dv(a.pPill, a.pill))}</td></tr>`;
   const tabla = `<table class="liga"><tr><th>Jugador</th><th>Manos</th><th>Del montón</th><th>Tira (valor)</th><th>Cierra a los</th><th>−10</th><th>Pillada</th></tr>
     ${gente.map(a => fila(a, (yoK.has(a.k) ? '🙋 ' : '') + escapar(a.n || 'Persona'))).join('')}
-    ${bots.map(a => fila(a, '🤖 ' + (NIV_N[a.nv] || 'Bot'))).join('')}</table>
+    ${bots.map(a => fila(a, nomBot(a))).join('')}</table>
     <div class="nota">«Del montón»: de cada 100 robos, cuántos coge del montón. «Tira»: valor medio de lo que tira. «Cierra a los»: turnos suyos hasta cerrar. «−10»: de sus cierres. «Pillada»: puntos que se come cuando cierra otra.</div>`;
-  const fichas = gente.map(a => {
+  const fichas = gente.concat(bots.filter(a => a.m)).map(a => {
     const t = a.manos >= 30 ? rasgosDe(a, ref) : [];
     const txt = a.manos < 30 ? `Pocas manos todavía (${a.manos} de 30) para sacar conclusiones.` : t.length ? t.join(' · ') : 'Juega muy parecido a la media de la mesa.';
-    return `<div class="nota" style="text-align:left;margin-top:6px"><b>${yoK.has(a.k) ? '🙋 ' : ''}${escapar(a.n || 'Persona')}:</b> ${txt}</div>`;
+    return `<div class="nota" style="text-align:left;margin-top:6px"><b>${a.h ? (yoK.has(a.k) ? '🙋 ' : '') + escapar(a.n || 'Persona') : nomBot(a)}:</b> ${txt}</div>`;
   }).join('');
   caja.innerHTML = tabla + fichas;
 }
