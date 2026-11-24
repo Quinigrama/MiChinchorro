@@ -158,6 +158,13 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .aviso{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:14px;font-size:18px;font-weight:700;z-index:30;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .flash{animation:flash .6s}
 @keyframes flash{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
+#mMazo.agotado .carta{background:transparent;border:3px dashed rgba(255,255,255,.35);box-shadow:none}
+#mMazo.agotado .carta::before{display:none}
+.pilaDesc{position:relative;width:var(--mw,72px);margin:0 auto 4px}
+.monton .pilaDesc .carta,.monton .pilaDesc .vacio{width:100%;margin:0}
+.carta.dorso.torcida{position:absolute;inset:0;transform:translate(9%,-5%) rotate(16deg);box-shadow:0 8px 16px rgba(0,0,0,.55);pointer-events:none}
+.carta.dorso.torcida.golpe{animation:golpeCierre .35s ease-out}
+@keyframes golpeCierre{0%{transform:translate(9%,-25%) rotate(4deg) scale(1.3)}70%{transform:translate(9%,-3%) rotate(17deg) scale(.97)}100%{transform:translate(9%,-5%) rotate(16deg)}}
 @media (max-height:720px){.avatar{width:30px;height:30px}.mensaje{font-size:16px;min-height:40px;padding:6px 10px}.rival .ult{height:1.25em}.rival .nom{font-size:15px}.cab .info small{display:none}}
 @media (max-height:560px){.rival .ult,.rival .barrita{display:none}}
 .bocadillo{position:fixed;z-index:35;background:#fffdf5;color:#2a2116;padding:9px 13px;border-radius:16px;font-size:17px;font-weight:700;line-height:1.25;box-shadow:0 8px 20px rgba(0,0,0,.45);max-width:min(270px,76vw);pointer-events:none;animation:pop .28s cubic-bezier(.3,1.6,.6,1)}
@@ -1473,7 +1480,7 @@ const FRASES = {
   coge: ['Gracias, {p}, me venía de perlas 😘', '¡Uy, qué bien! Esa me la quedo', 'Mmm… esta me gusta 🤭', 'Tú tira, {p}, tú tira, que yo recojo 😏', '¡Justo la que buscaba! 😍'],
   cogeTuya: ['Gracias, {h}, me venía de perlas 😘', '{h}, qué generosa estás hoy 🤭', '¡Ay, {h}, que me la has puesto a huevo! 😂', 'Esa no la tenías que haber tirado, {h} 😏'],
   figura: ['Ahí va {c}, que pesa mucho', 'Fuera figuras, que suman mucho', 'Toma {c}, para quien le haga falta 😅', 'Esa no me sirve ni para abanicarme 🪭'],
-  cierra: ['¡Cierro! A contar, chicas 😎', '¡Hala, cerrado! 😏', 'Lo siento, guapas, pero cierro 💅', '¡Cierre al canto! 🎺', '¡A contar puntitos! 🧮'],
+  cierra: ['¡Cierro! A contar, chicas 😎', '¡Hala, cerrado! 😏', 'Lo siento, guapas, pero cierro 💅', '¡Cierre al canto! 🎺', '¡A contar puntitos! 🧮', 'Me planto, a contar puntos 😂'],
   menos10: ['¡Menos diez! Toma ya 💃', '¡Todo ligado! Aprended, aprended 😌', '¡Menos diez! ¿Quién da más? 😎'],
   chinchon: ['¡¡Chinchón!! 😱🎉', '¡No me lo puedo creer! ¡CHINCHÓN! 🥳'],
   tuCierras: ['¡Qué suerte tiene la {h}! 🍀', '¡Ya ha cerrado esta! 😱', 'Hay que vigilar a {h}, que es muy lista 🕵️‍♀️', '¡{h}, eres una lagarta! 😂', '¡Pero si yo iba a cerrar ahora! 😤'],
@@ -1886,9 +1893,9 @@ function montoncito(n, rect, extra = '') {
   document.body.appendChild(caja);
   return caja;
 }
-async function animarBarajar(rect, texto) {
+async function animarBarajar(rect, texto, vueltas, rapido) {
   const izq = montoncito(5, rect), der = montoncito(5, rect);
-  const n = cuantasMezclas() || 3, ms = 260 * RITMO() * (n > 3 ? 0.55 : 1);
+  const n = vueltas || cuantasMezclas() || 3, ms = 260 * RITMO() * (rapido ? 0.5 : n > 3 ? 0.55 : 1);
   for (let vuelta = 0; vuelta < n && !saltarReparto; vuelta++) {
     if (texto && n > 3) mensaje(`${texto} · mezcla ${vuelta + 1} de ${n}`);
     sonar('mezcla');
@@ -1906,6 +1913,32 @@ async function animarBarajar(rect, texto) {
     await espera(ms * 0.3);
   }
   izq.remove(); der.remove();
+}
+/* Se acabó el mazo: el montón (menos la de arriba) pasa boca abajo al hueco del mazo y se mezcla una vez, rápido */
+let rebarajando = false;
+const hayQueRebarajar = () => !!G && !G.mazo.length && (G.descarte.length > 1 || !!(ONLINE && ONLINE.rol === 'invitado'));
+async function animarRebarajar() {
+  if (rebarajando) return;
+  rebarajando = true; saltarReparto = false;
+  try {
+    const mz = cartaMazo(), md = cartaMonton();
+    if (!mz || !md || document.hidden) return;
+    const rm = mz.getBoundingClientRect(), rd = md.getBoundingClientRect();
+    mensaje('Se acabó el mazo: se baraja el montón 🔀');
+    sonar('mezcla');
+    const pila = montoncito(5, rd);
+    await pila.animate([{ transform: 'translateY(6px)', opacity: 0 }, { transform: 'none', opacity: 1, offset: 0.2 }, { transform: `translate(${rm.left - rd.left}px,${rm.top - rd.top}px)`, opacity: 1 }],
+      { duration: 320 * RITMO(), easing: 'ease-in-out', fill: 'forwards' }).finished;
+    pila.remove();
+    if (!saltarReparto) await animarBarajar(rm, null, 1, true);
+  } finally {
+    rebarajando = false; saltarReparto = false;
+    if (G) {
+      if (ONLINE && ONLINE.rol === 'invitado') { if (!G.mazo.length) G.mazo = espejoMano(9, 1); }
+      else rellenarMazo();   // lo mismo que haría robar(): el juego no cambia
+      pintar();
+    }
+  }
 }
 async function animarCorte(rect) {
   const abajo = montoncito(4, rect), arriba = montoncito(4, rect, 'encima');
@@ -1981,7 +2014,7 @@ async function repartoAnimado(t) {
     }
   }
 }
-document.addEventListener('pointerdown', e => { if (G && G.anim && !e.target.closest('#mMazo') && !e.target.closest('.volver')) { saltarReparto = true; if (finCorte) finCorte(); } });
+document.addEventListener('pointerdown', e => { if (G && (G.anim || rebarajando) && !e.target.closest('#mMazo') && !e.target.closest('.volver')) { saltarReparto = true; if (finCorte) finCorte(); } });
 
 function mensaje(t, tuyo) { const m = $('mensaje'); m.textContent = t; m.classList.toggle('tuyo', !!tuyo); if (G) ajustarTamano(G.jugadores[YO].mano.length); }
 
@@ -2008,6 +2041,7 @@ async function turnoIA(t) {
   const i = G.turno, p = G.jugadores[i];
   if (G.fase === 'robar') {
   const deDesc = iaRobo(i);
+  if (!deDesc && hayQueRebarajar()) { await animarRebarajar(); if (t !== token) return; }
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(i, deDesc);
   if (!c) return manoNula();
@@ -2067,8 +2101,10 @@ function manoNula() {
 function miTurno() { return G && !G.anim && !G.terminada && G.turno === YO && G.jugadores[YO].humano && !(ONLINE && ONLINE.pend); }
 $('mMazo').onclick = () => { if (miTurno() && G.fase === 'robar') cogerYo(false); };
 $('mDesc').onclick = () => { if (miTurno() && G.fase === 'robar' && G.descarte.length) cogerYo(true); };
-function cogerYo(deDesc) {
+async function cogerYo(deDesc) {
+  if (rebarajando) return;
   if (ONLINE && ONLINE.rol === 'invitado') return enviarAccion({ tipo: 'robar', desc: !!deDesc });
+  if (!deDesc && hayQueRebarajar()) { await animarRebarajar(); if (!miTurno() || G.fase !== 'robar') return; }
   if (deDesc) { EST.cogidasMonton++; guardarEst(); }
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(YO, deDesc);
@@ -2233,6 +2269,7 @@ function ordenarMano(mano) {
   const porId = new Map(mano.map(c => [c.id, c]));
   return { lista: miOrden().map(id => porId.get(id)), a: analizar(mano) };
 }
+let golpeVisto = null;
 function pintar(flash) {
   if (!G) return;
   const yo = G.jugadores[YO];
@@ -2252,7 +2289,12 @@ function pintar(flash) {
   // mazo y montón
   $('nMazo').textContent = `Mazo (${G.mazo.length + (G.anim ? G.anim.pend : 0)})`;
   const top = G.anim && !G.anim.monton ? null : G.descarte[G.descarte.length - 1];
-  $('mDesc').innerHTML = (top ? htmlCarta(top, flash ? 'flash' : '') : '<div class="vacio"></div>') + '<span>Montón</span>';
+  $('mMazo').classList.toggle('agotado', !G.anim && !G.mazo.length && !rebarajando);
+  // al cerrar, la carta boca abajo queda encima del montón, atravesada
+  const cerrada = G.fase === 'resultado' && G.res && !G.anim;
+  const golpe = cerrada && golpeVisto !== G.manoN;
+  if (golpe) golpeVisto = G.manoN;
+  $('mDesc').innerHTML = '<div class="pilaDesc">' + (top ? htmlCarta(top, flash ? 'flash' : '') : '<div class="vacio"></div>') + (cerrada ? `<div class="carta dorso torcida${golpe ? ' golpe' : ''}"></div>` : '') + '</div><span>Montón</span>';
   const robo = miTurno() && G.fase === 'robar';
   $('mMazo').classList.toggle('activo', robo);
   $('mDesc').classList.toggle('activo', robo && !!top);
@@ -2442,7 +2484,7 @@ function finMano(res, habla, pausa) {
   regFin(res);
   anotarMano(res);
   if (ONLINE && ONLINE.rol === 'anfitrion') { G.fase = 'resultado'; G.res = res; pubOnline([{ t: 'cierra', i: res.cierra }]); }
-  if (!G.jugadores[res.cierra].humano) vibrar('cierre');
+  if (!G.jugadores[res.cierra].humano) vibrar('cierre'); else sonar('golpe');
   G.fase = 'resultado'; G.res = res;
   pintar(); guardar();
   setTimeout(() => mostrarResultado(res), pausa || (habla ? 2300 : 500));
@@ -3146,6 +3188,7 @@ async function onAccion(a) {
   if (!p || !p.remoto || p.uid !== a.uid) return log('no es su turno');
   log('ok');
   if (a.tipo === 'robar' && G.fase === 'robar') {
+    if (!a.desc && hayQueRebarajar()) { await animarRebarajar(); if (!G || G.turno !== i || G.fase !== 'robar') return; }
     const t = ++token;
     const origen = a.desc ? cartaMonton() : cartaMazo();
     const c = robar(i, !!a.desc); if (!c) return manoNula();
@@ -3292,6 +3335,7 @@ async function animarEvento(e) {
   if (e.t === 'sienta') { mensaje(e.txt); return; }
   if (e.t === 'reparte') { $('velo').classList.add('oculto'); ONLINE.resVisto = 0; aplicarPublico(ONLINE.ultimoP); G.jugadores[YO].orden = null; orden = 1; const t = ++token; await repartoInvitado(t); return; }
   if (e.t === 'roba') {
+    if (!e.desc && !G.mazo.length) await animarRebarajar();
     const origen = e.desc ? cartaMonton() : cartaMazo();
     if (e.i !== YO) mensaje(e.desc ? `${nom(e.i)} coge ${nombreCarta(e.carta)}` : `${nom(e.i)} roba del mazo`);
     if (e.desc) { G.descarte = []; pintar(); }
