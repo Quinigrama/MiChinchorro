@@ -298,9 +298,9 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
       <li>Cada uno tiene <b>7 cartas</b>. En tu turno <b>coges una</b> (del mazo o la de arriba del montón) y <b>tiras una</b>.</li>
       <li>Hay que <b>ligar</b> las cartas: <b>tres o cuatro iguales</b> (tres sietes) o <b>escalera</b> de tres o más del mismo palo (4, 5 y 6 de copas).</li>
       <li>Cuando casi todo está ligado puedes <b>cerrar</b>: <b>toca dos veces</b> la carta que quieres tirar, se pone <b>boca abajo</b>, y arrástrala al montón. Si te arrepientes, devuélvela a la mano y se da la vuelta.</li>
-      <li>Las cartas que no estén ligadas <b>suman puntos</b>. Quien pasa de 100 <b>se apunta una raya</b> (0,20 €) y se <b>reengancha</b> con los puntos de la que más tiene.</li>
+      <li>Las cartas que no estén ligadas <b>suman puntos</b>. Quien pasa de 100 <b>se apunta una raya</b> (0,20 €) y se <b>reengancha</b> con los puntos de quien más tiene.</li>
       <li>Si cierras con todo ligado te <b>quitas 10 puntos</b>. Y si haces <b>chinchón</b> (siete seguidas del mismo palo) <b>ganas la partida</b>.</li>
-      <li>La partida acaba cuando todas se han pasado menos una: <b>gana la que queda por debajo de 100</b> y se lleva todas las rayas 💰.</li>
+      <li>La partida acaba cuando solo queda <b>una persona por debajo de 100</b>: gana y se lleva todas las rayas 💰.</li>
     </ul>
     <p>💡 Las cartas ligadas llevan una <b>raya de color</b> debajo. Para <b>tirar</b> una carta, arrástrala con el dedo hasta el montón y suéltala.</p>
     <p>👆 Para <b>colocar tus cartas a tu gusto</b>, arrástralas con el dedo. El botón <b>🔀</b> las coloca de golpe por jugadas, por palos o por números.</p>
@@ -331,7 +331,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, precioChinchon: 1, colgar: true, chinchonGana: true,
-  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', reverso: 'rojo', manias: true, niveles: null, charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
+  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', reverso: 'rojo', manias: true, niveles: null, genero: '', charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
 // Azar criptográfico del navegador: cualquier orden de la baraja es posible e imprevisible
@@ -1205,11 +1205,12 @@ const OPC = [
   { k: 'baraja', t: 'Baraja', op: [[40, '40 cartas'], [48, '48 cartas (con 8 y 9)']] },
   { k: 'comodines', t: 'Comodines 🃏', op: [[0, 'Sin'], [1, '1'], [2, '2']] },
   { k: 'perfil', t: 'Quién eres', perfil: true },
+  { k: 'genero', t: 'Los personajes te hablan como a…', op: [['', 'Según tu avatar'], ['f', 'Una chica'], ['m', 'Un chico']] },
   { k: 'mesa', t: 'Con quién juegas', mesa: true },
   { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
   { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la ojo avizor)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
-  { k: 'charla', t: 'Comentarios de las jugadoras 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
+  { k: 'charla', t: 'Comentarios de los personajes 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
   { k: 'barajado', t: 'Forma de barajar', op: [['real', '7 mezclas de verdad'], ['azar', 'Rápido (3 vueltas)']] },
   { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
@@ -1476,21 +1477,21 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 
 /* ---------- Comentarios de las jugadoras ---------- */
 const FRASES = {
-  inicio: ['¡A ver quién paga hoy! 💸', 'Barajad bien, que la última vez hubo trampa 😏', 'Hoy vengo con suerte 🍀', '¡Venga, que empiece la partida! 🃏', 'Yo hoy no pago ni una raya, avisadas estáis 😌'],
+  inicio: ['¡A ver quién paga hoy! 💸', 'Barajad bien, que la última vez hubo trampa 😏', 'Hoy vengo con suerte 🍀', '¡Venga, que empiece la partida! 🃏', 'Yo hoy no pago ni una raya, [G:avisadas estáis|avisados estáis|ya lo sabéis] 😌'],
   coge: ['Gracias, {p}, me venía de perlas 😘', '¡Uy, qué bien! Esa me la quedo', 'Mmm… esta me gusta 🤭', 'Tú tira, {p}, tú tira, que yo recojo 😏', '¡Justo la que buscaba! 😍'],
-  cogeTuya: ['Gracias, {h}, me venía de perlas 😘', '{h}, qué generosa estás hoy 🤭', '¡Ay, {h}, que me la has puesto a huevo! 😂', 'Esa no la tenías que haber tirado, {h} 😏'],
+  cogeTuya: ['Gracias, {h}, me venía de perlas 😘', '{h}, qué [T:generosa|generoso] estás hoy 🤭', '¡Ay, {h}, que me la has puesto a huevo! 😂', 'Esa no la tenías que haber tirado, {h} 😏'],
   figura: ['Ahí va {c}, que pesa mucho', 'Fuera figuras, que suman mucho', 'Toma {c}, para quien le haga falta 😅', 'Esa no me sirve ni para abanicarme 🪭'],
-  cierra: ['¡Cierro! A contar, chicas 😎', '¡Hala, cerrado! 😏', 'Lo siento, guapas, pero cierro 💅', '¡Cierre al canto! 🎺', '¡A contar puntitos! 🧮', 'Me planto, a contar puntos 😂'],
+  cierra: ['¡Cierro! A contar, [G:chicas|chicos|familia] 😎', '¡Hala, cerrado! 😏', 'Lo siento, [G:guapas|guapos|cariños], pero cierro 💅', '¡Cierre al canto! 🎺', '¡A contar puntitos! 🧮', 'Me planto, a contar puntos 😂'],
   menos10: ['¡Menos diez! Toma ya 💃', '¡Todo ligado! Aprended, aprended 😌', '¡Menos diez! ¿Quién da más? 😎'],
   chinchon: ['¡¡Chinchón!! 😱🎉', '¡No me lo puedo creer! ¡CHINCHÓN! 🥳'],
-  tuCierras: ['¡Qué suerte tiene la {h}! 🍀', '¡Ya ha cerrado esta! 😱', 'Hay que vigilar a {h}, que es muy lista 🕵️‍♀️', '¡{h}, eres una lagarta! 😂', '¡Pero si yo iba a cerrar ahora! 😤'],
+  tuCierras: ['¡Qué suerte tiene [T:la|el] {h}! 🍀', '¡Ya ha cerrado [T:esta|este]! 😱', 'Hay que vigilar a {h}, que es muy [T:lista|listo] 🕵️', '¡{h}, eres [T:una lagarta|un lagarto]! 😂', '¡Pero si yo iba a cerrar ahora! 😤', '¡Anda, {h} ha cerrado! 😱', '¡Qué buena mano lleva {h}! 🍀'],
   raya: ['¡Ay, otra raya! 😩', 'Apúntamela, que ya la pago…', 'Esto es un robo, ¡un robo! 😤', 'Me reengancho, que esto no ha acabado 💪', 'Bueno, la próxima es mía…', '¡Qué mala pata tengo hoy! 🙈'],
   rayaTuya: ['¡Una rayita para {h}! 😜', '¡{h}, a pagar! Ji, ji 🤭', 'Esa raya te queda muy bien, {h} 😂', '¡Ay, {h}, que te vas a arruinar! 💸'],
-  gana: ['Ji, ji, ji 🤭', 'Qué bien voy… no digo nada 🤐', 'Hoy me llevo el bote, ya veréis 💰', 'Ay, qué suerte tengo hoy 🍀', 'Tranquilas, que no se me sube a la cabeza 😌'],
-  cerca: ['Uy, que me la cargo… 😬', 'Con cuidadito, que voy justa', 'Virgen santa, qué puntos tengo 🙈', 'Ay, que esta mano me toca pagar…'],
-  farol: ['Uy, qué malas 😮‍💨', 'Hoy no me entra ni una…', 'Madre mía, qué cartas me dais 🙄', 'Esta mano la pierdo, ya veréis', 'No ligo nada, ¡nada!', 'Yo con estas cartas me voy a casa 😩', 'Ay, qué desastre de mano…', 'Pues yo voy fatal, para que lo sepáis', 'Qué rachita llevo, hija… 😔', 'Ni una pareja, os lo juro'],
-  cierraFarol: ['¿Yo dije que iba mal? ¡Cierro! 😇', 'Uy, mira, ha entrado… ¡cierro! 🤭', 'Ji, ji… ¡cierro! 🤫', 'Pues al final… ¡cierro! 😏', 'Milagro, chicas: ¡cierro! 🙏'],
-  pillada: ['¡Anda que tus cartas malas, {p}! 🙄', '¡Mentirosa! ¿No decías que ibas fatal? 😂', 'Ya decía yo que tanto quejarse… 🤨', '¡Esta siempre igual, llorando y cerrando! 😤', 'La próxima vez no me lo creo, {p} 😒', '¡Qué cuentista eres, {p}! 😂', '{p}, a ti no te vuelvo a creer en la vida 🙅‍♀️'],
+  gana: ['Ji, ji, ji 🤭', 'Qué bien voy… no digo nada 🤐', 'Hoy me llevo el bote, ya veréis 💰', 'Ay, qué suerte tengo hoy 🍀', '[G:Tranquilas|Tranquilos|Tranquilidad], que no se me sube a la cabeza 😌'],
+  cerca: ['Uy, que me la cargo… 😬', 'Con cuidadito, que voy [Y:justa|justo]', 'Virgen santa, qué puntos tengo 🙈', 'Ay, que esta mano me toca pagar…'],
+  farol: ['Uy, qué malas 😮‍💨', 'Hoy no me entra ni una…', 'Madre mía, qué cartas me dais 🙄', 'Esta mano la pierdo, ya veréis', 'No ligo nada, ¡nada!', 'Yo con estas cartas me voy a casa 😩', 'Ay, qué desastre de mano…', 'Pues yo voy fatal, para que lo sepáis', 'Qué rachita llevo… 😔', 'Ni una pareja, os lo juro'],
+  cierraFarol: ['¿Yo dije que iba mal? ¡Cierro! 😇', 'Uy, mira, ha entrado… ¡cierro! 🤭', 'Ji, ji… ¡cierro! 🤫', 'Pues al final… ¡cierro! 😏', 'Milagro, [G:chicas|chicos|familia]: ¡cierro! 🙏'],
+  pillada: ['¡Anda que tus cartas malas, {p}! 🙄', '¡[T:Mentirosa|Mentiroso]! ¿No decías que ibas fatal? 😂', 'Ya decía yo que tanto quejarse… 🤨', '¡[T:Esta|Este] siempre igual, llorando y cerrando! 😤', 'La próxima vez no me lo creo, {p} 😒', '¡Qué cuentista eres, {p}! 😂', '{p}, a ti no te vuelvo a creer en la vida 🙅'],
   prisa: ['¿Quién juga 😮‍💨?', '¿Quién juga 😮‍💨?', '¿Piensas tirar hoy, {h}? ☕', '{h}, que se enfría el café ☕', 'Venga, {h}, que nos hacemos mayores 😅', 'Piénsatelo, piénsatelo… 🥱', '{h}, ¿te has dormido? 😴']
 };
 FRASES.quienJuega = ['¿Quién juga 😮‍💨?'];
@@ -1499,6 +1500,27 @@ FRASES.otraCierra = FRASES.tuCierras.map(f => f.replace(/\{h\}/g, '{p}'));
 const PROB = { quienJuega: 1, rayaOtra: .85, otraCierra: .8, farol: 1, cierraFarol: 1, pillada: 1, inicio: .9, coge: .45, cogeTuya: .7, figura: .15, cierra: 1, menos10: 1, chinchon: 1, tuCierras: .8, raya: .8, rayaTuya: .85, gana: .5, cerca: .45, prisa: 1 };
 let ultimaFrase = {}, tUltBocadillo = 0;
 function rivalesActivos() { return activos().filter(i => i !== YO && !G.jugadores[i].remoto); }
+/* Género en las frases: [T:ella|él] de quien se habla, [Y:ella|él] de quien habla,
+   [G:todas chicas|todos chicos|mezcla o sin saber] de quienes escuchan. Si no se sabe el género, esa frase no se dice. */
+function generoDe(k) {
+  const p = G && G.jugadores[k]; if (!p) return null;
+  if (k === YO && (PREF.genero === 'f' || PREF.genero === 'm')) return PREF.genero;
+  if (p.gen === 'f' || p.gen === 'm') return p.gen;
+  const porAvatar = typeof p.avatar === 'string' && VOCES_P[p.avatar] ? VOCES_P[p.avatar][0] : null;
+  if (k === YO) { const a = miAvatar(); return VOCES_P[a] ? VOCES_P[a][0] : null; }
+  if (!p.humano && !p.remoto && VOCES_P[p.nombre]) return VOCES_P[p.nombre][0];
+  return porAvatar;
+}
+function conGenero(f, i, ti) {
+  if (f.indexOf('[') < 0) return f;
+  const gT = generoDe(ti), gY = generoDe(i);
+  if ((f.includes('[T:') && !gT) || (f.includes('[Y:') && !gY)) return null;
+  const oyen = activos().filter(k => k !== i).map(generoDe);
+  const gG = oyen.length && oyen.every(g => g === 'f') ? 0 : oyen.length && oyen.every(g => g === 'm') ? 1 : 2;
+  return f.replace(/\[T:([^|\]]*)\|([^\]]*)\]/g, (_, a, b) => gT === 'f' ? a : b)
+    .replace(/\[Y:([^|\]]*)\|([^\]]*)\]/g, (_, a, b) => gY === 'f' ? a : b)
+    .replace(/\[G:([^|\]]*)\|([^|\]]*)\|([^\]]*)\]/g, (_, a, b, c) => [a, b, c][gG]);
+}
 function decir(i, tipo, vars = {}, forzar) {
   if (!PREF.charla || !G || i == null || i === YO) return false;
   if (ONLINE && ONLINE.rol === 'invitado') return false;           // en la mesa online hablan desde el móvil anfitrión
@@ -1508,9 +1530,12 @@ function decir(i, tipo, vars = {}, forzar) {
   const ahora = Date.now();
   if (!forzar && ahora - tUltBocadillo < 2500) return false;
   const caja = document.querySelector(`.rival[data-i="${i}"]`); if (!caja) return false;
-  const lista = FRASES[tipo].filter(f => f !== ultimaFrase[tipo]);
+  const ti = vars.pi != null ? vars.pi : YO;   // de quién se habla
+  const lista = FRASES[tipo].filter(f => f !== ultimaFrase[tipo] && conGenero(f, i, ti) !== null);
+  if (!lista.length) return false;
   let f = lista[Math.floor(Math.random() * lista.length)];
   ultimaFrase[tipo] = f;
+  f = conGenero(f, i, ti);
   const h = G.jugadores[YO].nombre;
   f = f.replace(/\{h\}/g, h).replace(/\{p\}/g, vars.p || h).replace(/\{c\}/g, vars.c || 'esta');
   if (vars.rey && /pesa mucho$/.test(f)) f += ' 👑';
@@ -1539,7 +1564,7 @@ function alguna(tipo, vars, forzar) { const r = rivalesActivos(); if (r.length) 
 function reacciones(res) {
   if (!PREF.charla || !res || !res.filas) return;
   const cola = [];
-  for (const f of res.filas) if (f.raya) cola.push(f.i === YO ? () => alguna('rayaTuya') : G.jugadores[f.i].remoto ? () => alguna('rayaOtra', { p: G.jugadores[f.i].nombre }) : () => decir(f.i, 'raya'));
+  for (const f of res.filas) if (f.raya) cola.push(f.i === YO ? () => alguna('rayaTuya') : G.jugadores[f.i].remoto ? () => alguna('rayaOtra', { p: G.jugadores[f.i].nombre, pi: f.i }) : () => decir(f.i, 'raya'));
   const act = activos();
   if (act.length > 1) {
     const min = Math.min(...act.map(i => G.jugadores[i].puntos));
@@ -1719,7 +1744,7 @@ function consejosPersonales(E = EST) {
   const t = [];
   if (E.manos < 3) return ['Juega unas cuantas manos y aquí te diré en qué puedes mejorar 😊'];
   if (E.cierresPerdidos > 0) t.push(`Has dejado pasar <b>${E.cierresPerdidos}</b> ${E.cierresPerdidos === 1 ? 'ocasión' : 'ocasiones'} de cerrar. Cuando salga «✅ Cierra», ¡plántate!`);
-  if (E.pillada >= 3 && E.figurasPilladas / E.pillada >= 0.8) t.push(`Cuando cierra otra te pilla con <b>${media(E.figurasPilladas, E.pillada)}</b> figuras de media. Suelta antes las sotas, caballos y reyes sueltos`);
+  if (E.pillada >= 3 && E.figurasPilladas / E.pillada >= 0.8) t.push(`Cuando cierra alguien te pilla con <b>${media(E.figurasPilladas, E.pillada)}</b> figuras de media. Suelta antes las sotas, caballos y reyes sueltos`);
   if (E.tiradas >= 10 && E.mejorables / E.tiradas >= 0.15) t.push(`En <b>${Math.round(100 * E.mejorables / E.tiradas)}</b> de cada 100 tiradas había una carta mejor para tirar. Prueba el botón 💡 de vez en cuando para comparar`);
   if (E.manos >= 6 && E.cierres / E.manos < 0.2) t.push('Cierras pocas manos. Guarda una carta baja (as, 2 o 3) para poder plantarte antes');
   if (E.pillada >= 3 && E.puntos / E.pillada > 18) t.push('Cuando cierran otras te comes muchos puntos. Si una coge dos veces del montón, suelta tus cartas altas');
@@ -1794,7 +1819,7 @@ function pintarEstad() {
     </div></div>
     <div class="grupo"><h3>✋ Manos</h3><div class="tiles">
       ${tile(e.manos, 'jugadas')}${tile(e.cierres, 'cerradas por ti')}${tile(e.menos10, 'con −10')}
-      ${tile(e.chinchones, 'chinchones 🎉')}${tile(media(e.puntos, e.pillada), 'puntos que te comes cuando cierra otra')}${tile(media(e.figurasPilladas, e.pillada), 'figuras sueltas cuando te pillan')}
+      ${tile(e.chinchones, 'chinchones 🎉')}${tile(media(e.puntos, e.pillada), 'puntos que te comes cuando cierra alguien')}${tile(media(e.figurasPilladas, e.pillada), 'figuras sueltas cuando te pillan')}
     </div></div>
     <div class="grupo"><h3>💰 Dinero de mentira</h3><div class="tiles">
       ${tile(e.rayas, 'rayas apuntadas')}${tile(euros(e.euros), e.euros >= 0 ? 'ganados' : 'perdidos', e.euros >= 0 ? 'bien' : 'mal')}${tile(euros(saldo), 'en el monedero')}
@@ -2046,7 +2071,7 @@ async function turnoIA(t) {
   const c = robar(i, deDesc);
   if (!c) return manoNula();
   reg(deDesc ? 'D' : 'M', i, deDesc ? c : null);
-  if (deDesc) { const de = G.ultimoTira; de === YO ? decir(i, 'cogeTuya') : decir(i, 'coge', { p: de != null && G.jugadores[de] ? G.jugadores[de].nombre : '' }); }
+  if (deDesc) { const de = G.ultimoTira; de === YO ? decir(i, 'cogeTuya') : decir(i, 'coge', { p: de != null && G.jugadores[de] ? G.jugadores[de].nombre : '', pi: de }); }
   p.ultimo = deDesc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
   mensaje(deDesc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
   // del montón se ve la carta; del mazo va boca abajo
@@ -2067,7 +2092,7 @@ async function turnoIA(t) {
     const habla = decir(i, res.finPartida && res.chinchon ? 'chinchon' : deFarol ? 'cierraFarol' : (res.filas[0].puntos === -10 ? 'menos10' : 'cierra'), {}, true);
     if (deFarol && PREF.charla) {
       const otras = activos().filter(k => k !== i && k !== YO);
-      if (otras.length) setTimeout(() => decir(otras[Math.floor(Math.random() * otras.length)], 'pillada', { p: p.nombre }, true), 1500);
+      if (otras.length) setTimeout(() => decir(otras[Math.floor(Math.random() * otras.length)], 'pillada', { p: p.nombre, pi: i }, true), 1500);
       return finMano(res, habla, 3600);
     }
     return finMano(res, habla);
@@ -2880,9 +2905,9 @@ async function abrirMesa(c) {
     return reanudarMesa(c, m);
   }
   recordarMesa(c);
-  if (m.estado === 'pausa') return aviso(`⏸ En pausa: espera a que ${m.nombreAnf || 'la anfitriona'} la siga`);
+  if (m.estado === 'pausa') return aviso(`⏸ En pausa: espera a que ${m.nombreAnf || 'quien creó la mesa'} la siga`);
   if (m.estado === 'jugando') return estoy ? entrarInvitado(c, m, true) : elegirSitio(c, m);
-  try { await red.sentar(c, uid, limpiar({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
+  try { await red.sentar(c, uid, limpiar({ nombre: PREF.nombre || 'Invitado', avatar: miAvatar(), gen: PREF.genero || null, t: Date.now() })); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
   entrarInvitado(c, m, false);
 }
 /* ---------- Invitaciones: enlace ?mesa=CÓDIGO ---------- */
@@ -3006,7 +3031,7 @@ function aplicarSillas(enAvanzar) {
       if (i < 0 || !libre(i)) continue;
       const p = G.jugadores[i], antes = p.nombre;
       if (!p.bot) p.bot = { nombre: p.nombre, avatar: p.avatar, nivel: p.nivel };
-      Object.assign(p, { nombre: x.nombre || 'Invitada', avatar: avatarSeguro(x.avatar), uid: x.uid, remoto: true, humano: false, nivel: 1, reservada: false, rayas0: p.rayas });
+      Object.assign(p, { nombre: x.nombre || 'Invitado', avatar: avatarSeguro(x.avatar), gen: x.gen === 'f' || x.gen === 'm' ? x.gen : null, uid: x.uid, remoto: true, humano: false, nivel: 1, reservada: false, rayas0: p.rayas });
       cambio = true;
       pendEv.push({ t: 'sienta', txt: `${p.nombre} se sienta en el sitio de ${antes} 🪑` }); aviso(`${p.nombre} se sienta en el sitio de ${antes} 🪑`);
     }
@@ -3025,7 +3050,7 @@ function sillasNuevas() {
     if (x.quiere !== 'nueva' || G.jugadores.length >= 5 || G.jugadores.some(p => p.uid === x.uid)) continue;
     const vivos = G.jugadores.filter(p => !p.fuera);
     const pts = vivos.length ? Math.max(...vivos.map(p => p.puntos)) : 0;
-    G.jugadores.push({ nombre: x.nombre || 'Invitada', avatar: avatarSeguro(x.avatar), uid: x.uid, remoto: true, humano: false, nivel: 1,
+    G.jugadores.push({ nombre: x.nombre || 'Invitado', avatar: avatarSeguro(x.avatar), gen: x.gen === 'f' || x.gen === 'm' ? x.gen : null, uid: x.uid, remoto: true, humano: false, nivel: 1,
       puntos: pts, fuera: false, reeng: 0, rayas: 0, rayas0: 0, mano: [], ultimo: '' });
     S.jugadores = G.jugadores.length;
     if (S.jugadores >= 5 && S.baraja === 40) S.baraja = 48;   // con 5 la de 40 se queda sin mazo
@@ -3066,7 +3091,7 @@ function salaAnfitrion() {
       <div class="nota" style="margin-top:8px">${n - per ? `${n - per} ${n - per === 1 ? 'bot' : 'bots'} · ` : ''}${per - 1 - hum.length > 0 ? `${per - 1 - hum.length} ${per - 1 - hum.length === 1 ? 'sitio reservado' : 'sitios reservados'}: mientras no lleguen, los guarda un bot.` : 'Todos sentados 🙌'}</div></div>
     <div class="grupo"><h3>En la mesa</h3>
       <div class="sentado">${avatarSVGmini(miAvatar())}${esc(PREF.nombre || 'Tú')}<small>tú · repartes</small></div>
-      ${hum.map(h => `<div class="sentado">${avatarSVGmini(avatarSeguro(h.avatar))}${esc(h.nombre)}<small>📱 sentada</small></div>`).join('')}
+      ${hum.map(h => `<div class="sentado">${avatarSVGmini(avatarSeguro(h.avatar))}${esc(h.nombre)}<small>📱 en la mesa</small></div>`).join('')}
       ${bots.map((b, k) => k < reservadas
         ? `<div class="sentado" style="opacity:.85">${avatarSVGmini(b)}<span>🪑 Sitio reservado</span><small>lo guarda ${b} 🤖</small></div>`
         : `<div class="sentado" style="opacity:.75">${avatarSVGmini(b)}${b}<small>🤖 la app</small></div>`).join('')}
@@ -3214,7 +3239,7 @@ async function onAccion(a) {
     await volar(avatarDe(i), cartaMonton(), dorsoHTML, VUELO()); if (t !== token) return;
     reg('C', i);
     const res = cerrar(i, a.id);
-    finMano(res, alguna('otraCierra', { p: p.nombre }, true));
+    finMano(res, alguna('otraCierra', { p: p.nombre, pi: i }, true));
   }
 }
 
@@ -3240,18 +3265,18 @@ function elegirSitio(c, m) {
 }
 async function sentarseYa(c, m, quiere) {
   const red = RED(), uid = miUid();
-  try { await red.sentar(c, uid, limpiar(Object.assign({ nombre: PREF.nombre || 'Invitada', avatar: miAvatar(), t: Date.now() }, quiere))); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
+  try { await red.sentar(c, uid, limpiar(Object.assign({ nombre: PREF.nombre || 'Invitado', avatar: miAvatar(), gen: PREF.genero || null, t: Date.now() }, quiere))); } catch (e) { return aviso('No se pudo entrar en la mesa 📵'); }
   recordarMesa(c);
   entrarInvitado(c, m, false, quiere.quiere);
 }
 function entrarInvitado(codigo, m, vuelta, quiere) {
   const red = RED(), uid = miUid();
-  ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'la anfitriona', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false, vuelta, quiere, mitad: m.estado === 'jugando' && !vuelta };
+  ONLINE = { rol: 'invitado', codigo, uid, unsubs: [], nombreAnf: m.nombreAnf || 'quien creó la mesa', ultEv: 0, cola: [], mano: [], resVisto: 0, pend: false, vuelta, quiere, mitad: m.estado === 'jugando' && !vuelta };
   if (vuelta) aviso('¡De vuelta en la mesa! 🙌');
   if (m.estado !== 'jugando') LS.set('mc-online', { rol: 'invitado', codigo, espera: true, nombreAnf: ONLINE.nombreAnf, t: Date.now() });
   ir('online');
   pintarOnline(`<div class="grupo"><h3>${esc(nombreMesa(m))} · ${codigo}</h3><div class="sentado">${avatarSVGmini(avatarSeguro(m.avatarAnf))}${esc(m.nombreAnf || '')}<small>reparte</small></div>
-    <div class="sub" style="margin-top:12px">¡Ya estás sentada! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'la anfitriona')} empiece la partida…</div></div>
+    <div class="sub" style="margin-top:12px">¡Ya tienes sitio! 🪑<br>Esperando a que ${esc(m.nombreAnf || 'quien creó la mesa')} empiece la partida…</div></div>
     <button class="secund" id="bMisMesasInv" style="width:100%">🗂️ Volver a Mis mesas</button>`);
   $('bMisMesasInv').onclick = () => { salirOnline(false); pantallaOnline(); };
   if (ONLINE.mitad) pintarOnline(`<div class="grupo"><h3>${esc(nombreMesa(m))} · ${codigo}</h3><div class="sub">${quiere === 'nueva' ? 'Entrarás al empezar la mano siguiente ✋' : quiere === 'mirar' ? 'Mirando la mesa 👀' : 'Sentándote… 🪑'}</div></div><div id="mirador"></div>
@@ -3265,7 +3290,7 @@ function onMesaInvitado(d) {
   if (!d) { ventana('<h2>Mesa cerrada</h2><div class="sub">Esta mesa ya no existe.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
   if (d.estado === 'pausa') { ventana(`<h2>⏸ Partida en pausa</h2><div class="sub">${esc(ONLINE.nombreAnf)} la ha dejado para otro día. La seguiréis desde 🗂️ Mis mesas.</div>`, [{ t: 'Vale', f: () => { ir('online'); pantallaOnline(); } }]); salirOnline(false); return; }
   if (!ONLINE.empezada && d.estado !== 'jugando') return;   // esperando a que empiece
-  if (d.cancelada || (d.estado === 'fin' && !d.publico)) { ventana('<h2>Mesa cerrada</h2><div class="sub">La anfitriona ha cerrado la mesa.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
+  if (d.cancelada || (d.estado === 'fin' && !d.publico)) { ventana('<h2>Mesa cerrada</h2><div class="sub">Quien creó la mesa la ha cerrado.</div>', [{ t: 'Al inicio', f: () => salirOnline(true) }]); salirOnline(false); return; }
   if (!d.publico) return;
   if (!ONLINE.empezada) {
     // primera vez: preparar la partida espejo
