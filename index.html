@@ -71,7 +71,8 @@ section{min-height:100%;min-height:100dvh;max-width:760px;margin:0 auto;padding:
 .rival.turno .avatar{box-shadow:0 0 0 3px var(--oro);animation:late 1.2s infinite}
 .conava{display:flex;align-items:center}
 .porrival .fr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
-.seg.chico{flex-wrap:nowrap}.seg.chico button{min-width:46px;padding:9px 6px;font-size:19px}
+.seg.chico{flex-wrap:nowrap;flex-shrink:1;min-width:0}.seg.chico button{min-width:38px;padding:9px 4px;font-size:18px;flex:1 1 0}
+.porrival .fr>.sentar{flex-shrink:0}
 .avnv{position:relative;flex:0 0 auto;display:inline-block}
 .avnv .nv{position:absolute;right:-5px;bottom:-4px;font-size:12px;line-height:1;background:var(--tapete2);border-radius:50%;padding:2px}
 .pila{position:fixed;z-index:40;pointer-events:none}
@@ -988,19 +989,22 @@ function finDePartida(i) {
   const r = activos().filter(k => k !== i);
   return r.length > 0 && r.every(k => G.jugadores[k].puntos >= S.limite - EP.fin);
 }
-function maniaDe(p) { return (!p || p.humano || p.remoto || S.manias === false) ? null : (MANIAS[p.nombre] || null); }
+function maniaDe(p) { return (!p || p.humano || p.remoto || p.nivel === 4 || p.sinMania || S.manias === false) ? null : (MANIAS[p.nombre] || null); }
+// Nivel 4 = Gemini (IA de Google, la decide la interfaz). Cuando decide el motor (simulaciones o si Gemini falla), juega como la Difícil de libro
+function comoBot(i, f) { const p = G.jugadores[i]; if (p.nivel !== 4) return f(); p.nivel = 2; p.sinMania = true; try { return f(); } finally { p.nivel = 4; p.sinMania = false; } }
 function arrima(mano, c) {   // ¿la carta hace jugada, pareja o escalerita con algo de la mano?
   if (c.j) return true;
   if (analizar(mano.concat([c])).muertos < analizar(mano).muertos + valor(c)) return true;   // liga con algo
   return valor(c) <= 7 && mano.some(x => !x.j && (x.r === c.r || (x.s === c.s && Math.abs(rIdx(x.r) - rIdx(c.r)) <= 1)));   // pareja o seguida, si no pesa mucho
 }
-function iaRobo(i) {
+function iaRobo(i) { return comoBot(i, () => iaRoboM(i)); }
+function iaRoboM(i) {
   const m = maniaDe(G.jugadores[i]);
   const top = G.descarte[G.descarte.length - 1];
   if (m && m.id === 'monton' && top && arrima(G.jugadores[i].mano, top)) return true;
   return conPesos(i, () => iaRobo_(i));
 }
-function iaTirada(i) { return conPesos(i, () => iaTirada_(i)); }
+function iaTirada(i) { return comoBot(i, () => conPesos(i, () => iaTirada_(i))); }
 function iaRobo_(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel);
   if (nivel === 3 && TX.mc) return roboMC(i);
@@ -1225,6 +1229,7 @@ const OPC = [
   { k: 'perfil', t: 'Quién eres', perfil: true },
   { k: 'genero', t: 'Los personajes te hablan como a…', op: [['', 'Según tu avatar'], ['f', 'Una chica'], ['m', 'Un chico']] },
   { k: 'mesa', t: 'Con quién juegas', mesa: true },
+  { k: 'gemini', t: '✨ Gemini de rival (experimento)', gemini: true },
   { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
   { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la ojo avizor, Elvira la estratega)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
@@ -1255,6 +1260,7 @@ function pintarAjustes() {
   for (const o of OPC) {
     if (o.h) { if (abierto) h += '</div>'; h += `<div class="grupo"><h3>${o.h}</h3>`; abierto = true; continue; }
     h += `<div class="opc"><div class="tit">${o.t}</div>`;
+    if (o.gemini) { h += htmlGemini() + '</div>'; continue; }
     if (o.perfil) {
       h += `<input data-k="nombre" value="${String(PREF.nombre || '').replace(/"/g, '&quot;')}" placeholder="Escribe tu nombre">`;
       h += `<div class="tit" style="margin-top:10px">Tu avatar</div><div class="avatares">${opcionesAvatar().map(k => `<button class="avbtn" data-avatar="${k}" aria-pressed="${PREF.avatar === k}">${avatarSVG(k)}</button>`).join('')}</div></div>`;
@@ -1269,10 +1275,10 @@ function pintarAjustes() {
         const pos = sent.indexOf(n), dentro = pos >= 0 && pos < falta;
         const nv = (PREF.nivelDe || {})[n] ?? PREF.nivel;
         h += `<div class="fr ${dentro ? '' : 'fuera'}"><button class="sentar" data-sentar="${n}" aria-pressed="${dentro}">${avatarSVGmini(n)}${n}${dentro ? ' ✓' : ''}</button>`
-          + (dentro ? `<div class="seg chico">${[[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']].map(([v, l]) => `<button data-nivelde="${n}" data-v="${v}" aria-pressed="${nv === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div>` : '') + '</div>'
+          + (dentro ? `<div class="seg chico">${nivOpc().map(([v, l]) => `<button data-nivelde="${n}" data-v="${v}" aria-pressed="${nv === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div>` : '') + '</div>'
         if (MANIAS[n] && PREF.manias !== false) h += `<div class="nota" style="margin:-4px 0 6px 14px;text-align:left">🎭 ${n} ${MANIAS[n].t}</div>`;
       }
-      h += '<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta</div></div></div>';
+      h += `<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta${gemCfg().clave ? ' · ✨ Gemini' : ''}</div></div></div>`;
       continue;
     }
     if (o.porRival) {
@@ -1281,9 +1287,9 @@ function pintarAjustes() {
       h += '<div class="porrival">';
       for (let k = 0; k < PREF.jugadores - 1; k++) {
         const actual = nv[k] ?? PREF.nivel;
-        h += `<div class="fr"><span class="conava">${avatarSVGmini(k + 1)}${noms[k] || 'Rival ' + (k + 1)}</span><div class="seg chico">${[[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']].map(([v, l]) => `<button data-rival="${k}" data-v="${v}" aria-pressed="${actual === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div></div>`;
+        h += `<div class="fr"><span class="conava">${avatarSVGmini(k + 1)}${noms[k] || 'Rival ' + (k + 1)}</span><div class="seg chico">${nivOpc().map(([v, l]) => `<button data-rival="${k}" data-v="${v}" aria-pressed="${actual === v}" title="${NIVELES[v]}">${l}</button>`).join('')}</div></div>`;
       }
-      h += '<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta</div></div></div>';
+      h += `<div class="nota">🟢 Fácil · 🟡 Normal · 🔴 Difícil · 🧠 Experta${gemCfg().clave ? ' · ✨ Gemini' : ''}</div></div></div>`;
       continue;
     }
     if (o.vis) {
@@ -1300,6 +1306,7 @@ function pintarAjustes() {
   }
   $('opciones').innerHTML = h + '</div>';
   $('opciones').querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.gemprueba) return probarGemini();
     if (b.dataset.avatar) { PREF.avatar = b.dataset.avatar; PREF.perfilHecho = true; }
     else if (b.dataset.sentar) {
       const n = b.dataset.sentar, falta = PREF.jugadores - 1;
@@ -1315,7 +1322,7 @@ function pintarAjustes() {
     LS.set('mc-ajustes2', PREF); aplicarTema(); pintarAjustes();
     if (b.dataset.k === 'sonido' && PREF.sonido > 0) { sonar('carta'); if (PREF.sonido === 2) setTimeout(() => hablar('Matilde', '¿Quién juga?'), 300); }
   });
-  $('opciones').querySelectorAll('input').forEach(i => { i.oninput = () => { PREF[i.dataset.k] = i.value; if (i.dataset.k === 'nombre') PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); }; i.onchange = () => pintarAjustes(); });
+  $('opciones').querySelectorAll('input').forEach(i => { if (i.dataset.gem) { i.oninput = () => { LS.set(GEM_K, Object.assign(gemCfg(), { [i.dataset.gem]: i.value.trim() })); }; i.onchange = () => pintarAjustes(); return; } i.oninput = () => { PREF[i.dataset.k] = i.value; if (i.dataset.k === 'nombre') PREF.perfilHecho = true; LS.set('mc-ajustes2', PREF); }; i.onchange = () => pintarAjustes(); });
 }
 $('bReset').onclick = () => { PREF = Object.assign({}, DEF); LS.set('mc-ajustes2', PREF); pintarAjustes(); aviso('Ajustes de siempre puestos'); };
 $('bSaldo').onclick = () => { CART.saldo = SALDO0; guardarCartera(); if (enCuenta()) { window.marcarReinicio('mon'); window.__cuenta = null; subirNube(); } aviso('Monedero a 10,00 €'); };
@@ -1429,7 +1436,7 @@ function avatarSVG(k) {
     ${a.bigote ? `<path d="M40 57Q45 53 50 55.5Q55 53 60 57Q56 59.5 50 58Q44 59.5 40 57Z" fill="${a.bigote}"/>` : ''}
     ${gafas}</svg>`;
 }
-const NIVELES = ['Fácil', 'Normal', 'Difícil', 'Experta'], ICONIV = ['🟢', '🟡', '🔴', '🧠'];
+const NIVELES = ['Fácil', 'Normal', 'Difícil', 'Experta', 'Gemini (IA)'], ICONIV = ['🟢', '🟡', '🔴', '🧠', '✨'];
 const COLORES_LETRA = ['#e07a3a', '#2f8a5b', '#3b6fd1', '#b03a7a'];
 function opcionesAvatar() {
   const ini = ((PREF.nombre || '?').trim()[0] || '?').toUpperCase();
@@ -1683,10 +1690,10 @@ if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoi
 const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinchones: 0, puntos: 0, pillada: 0, figurasPilladas: 0, rayas: 0, euros: 0, tiradas: 0, mejorables: 0, cierresPerdidos: 0, cogidasMonton: 0, cogidasUtiles: 0, manosPartidas: 0, partidasContadas: 0, manosMax: 0, desde: null };
 // Liga de niveles: por nivel (n0..n3), tú (yo) y personas online (per): manos, suma y suma² de puntos frente a la mesa, cierres, −10, rayas, partidas y ganadas
 // más, desde el 25/11/2026: k = partidas con esperado, e = ganadas esperadas por azar (1/jugadores), v = su varianza (para ver si se gana más de la cuenta)
-const LIGA = ['n3', 'n2', 'n1', 'n0', 'yo', 'per'], LIGA_C = ['m', 'r', 'q', 'c', 'd', 'y', 'p', 'g', 'k', 'e', 'v'];
+const LIGA = ['n4', 'n3', 'n2', 'n1', 'n0', 'yo', 'per'], LIGA_C = ['m', 'r', 'q', 'c', 'd', 'y', 'p', 'g', 'k', 'e', 'v'];
 for (const L of LIGA) for (const c of LIGA_C) EST0[`lg_${L}_${c}`] = 0;
 // para la liga global: los bots solo los apunta quien lleva la partida (en una mesa online, el anfitrión), para no contarlos dos veces
-for (const L of ['n3', 'n2', 'n1', 'n0']) for (const c of LIGA_C) EST0[`lgx_${L}_${c}`] = 0;
+for (const L of ['n4', 'n3', 'n2', 'n1', 'n0']) for (const c of LIGA_C) EST0[`lgx_${L}_${c}`] = 0;
 let EST = Object.assign({}, EST0, LS.get('mc-estad', {}));
 function claveLiga(i) { const p = G.jugadores[i]; if (i === YO) return 'yo'; if (p.uid || p.remoto || p.humano) return 'per'; return 'n' + (p.nivel ?? S.nivel); }
 function anotarLiga(res) {
@@ -1716,7 +1723,7 @@ function anotarLigaFin() {
   guardarEst();
 }
 function pintarLiga(e, otrosNombres) {
-  const NOM = Object.assign({ n3: '🧠 Experta', n2: '🔴 Difícil', n1: '🟡 Normal', n0: '🟢 Fácil', yo: '🙋 Tú', per: '📱 Personas online' }, otrosNombres || {});
+  const NOM = Object.assign({ n4: '✨ Gemini', n3: '🧠 Experta', n2: '🔴 Difícil', n1: '🟡 Normal', n0: '🟢 Fácil', yo: '🙋 Tú', per: '📱 Personas online' }, otrosNombres || {});
   const filas = LIGA.filter(L => e[`lg_${L}_m`] > 0).map(L => {
     const n = e[`lg_${L}_m`], m = e[`lg_${L}_r`] / n, sd = Math.sqrt(Math.max(0, e[`lg_${L}_q`] / n - m * m));
     const p = e[`lg_${L}_p`] || 0, k = e[`lg_${L}_k`] || 0;
@@ -2089,10 +2096,128 @@ function avanzar() {
   setTimeout(() => { if (t === token) turnoIA(t); }, ESPERA() * 0.6);
 }
 
+/* ---------- ✨ Gemini de rival (experimento) ----------
+   La clave se guarda solo en este móvil (mc-gemini), nunca en GitHub ni en la nube.
+   Si Gemini no responde, se equivoca o se acaba el cupo, juega la Difícil de libro en su lugar. */
+const GEM_K = 'mc-gemini', GEM_USO = 'mc-gemini-uso';
+function gemEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function gemCfg() { return Object.assign({ clave: '', modelo: 'gemini-flash-latest' }, LS.get(GEM_K, {})); }
+function nivOpc() { const o = [[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']]; if (gemCfg().clave) o.push([4, '✨']); return o; }
+function gemUso() { const hoy = new Date().toISOString().slice(0, 10), u = LS.get(GEM_USO, {}); return u.dia === hoy ? u : { dia: hoy, llamadas: 0, tokens: 0, fallos: 0 }; }
+function gemApuntar(tok, fallo) { const u = gemUso(); u.llamadas++; u.tokens += tok || 0; if (fallo) u.fallos++; LS.set(GEM_USO, u); }
+let gemAgotado = false, gemAvisado = 0;
+function htmlGemini() {
+  const c = gemCfg(), u = gemUso();
+  return `<div class="nota" style="text-align:left;margin-bottom:6px">Pon tu clave gratuita de <b>aistudio.google.com</b> («Get API key» → «Create API key»). Se guarda <b>solo en este móvil</b>. Luego, en «Con quién juegas», elige ✨ para cualquier personaje.</div>
+    <input data-gem="clave" type="password" autocomplete="off" placeholder="Clave (AIza…)" value="${gemEsc(c.clave)}">
+    <div class="tit" style="margin-top:8px">Modelo</div><input data-gem="modelo" value="${gemEsc(c.modelo)}">
+    <div class="seg" style="margin-top:8px"><button data-gemprueba="1">Probar la clave</button></div>
+    <div class="nota" id="gemEstado">${c.clave ? `Hoy: <b>${u.llamadas}</b> preguntas a Gemini, unos <b>${u.tokens.toLocaleString('es-ES')}</b> tokens${u.fallos ? `, ${u.fallos} fallos (jugó la Difícil)` : ''}.` : 'Sin clave: el nivel ✨ no aparece.'}</div>`;
+}
+async function gemPreguntar(texto) {
+  const { clave, modelo } = gemCfg();
+  if (!clave) throw new Error('sin clave');
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 25000);
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo || 'gemini-flash-latest')}:generateContent`, {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: gemReglas() }] }, contents: [{ role: 'user', parts: [{ text: texto }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { gemApuntar(0, true); const e = new Error((j.error && j.error.message) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+    const tok = (j.usageMetadata && j.usageMetadata.totalTokenCount) || 0;
+    const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map(x => x.text || '').join('');
+    const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
+    if (a < 0 || b < a) { gemApuntar(tok, true); throw new Error('respuesta sin JSON'); }
+    gemApuntar(tok, false);
+    return JSON.parse(txt.slice(a, b + 1));
+  } finally { clearTimeout(to); }
+}
+async function probarGemini() {
+  if ($('gemEstado')) $('gemEstado').textContent = 'Probando…';
+  try { const r = await gemPreguntar('Esto es una prueba. Responde solo {"ok":true,"motivo":"un saludo corto en español"}'); gemAgotado = false; if ($('gemEstado')) $('gemEstado').innerHTML = `✅ Funciona. Gemini dice: «${gemEsc(r.motivo || 'ok')}»`; }
+  catch (e) { if ($('gemEstado')) $('gemEstado').textContent = '❌ No funciona: ' + (e.name === 'AbortError' ? 'no responde (25 s)' : e.message); }
+}
+function gemReglas() {
+  const fig = S.figuras === 10 ? 'sota, caballo y rey valen 10' : 'sota 10, caballo 11 y rey 12';
+  const orden = S.baraja === 48 ? '1-2-3-4-5-6-7-8-9-10(sota)-11(caballo)-12(rey)' : '1-2-3-4-5-6-7-sota(10)-caballo(11)-rey(12) (no hay 8 ni 9: la sota va detrás del 7)';
+  return `Eres una jugadora de chinchón (chinchorro) con baraja española de ${S.baraja} cartas, en una partida de ${G ? G.jugadores.length : 4} jugadores.
+Códigos de carta: número + palo (o = oros, c = copas, e = espadas, b = bastos); "*" es un comodín. Ejemplo: "12b" = rey de bastos.
+Valores: as 1, del 2 al 9 su número, ${fig}${S.comodines ? `, comodín sin ligar ${S.valorComodin}` : ''}.
+Jugadas (ligar cartas): grupos de 3 o 4 cartas del mismo número, o escaleras de 3 o más seguidas del mismo palo en el orden ${orden}.${S.comodines ? ' El comodín sustituye a cualquier carta.' : ''}
+Cada turno: robas una carta (de arriba del mazo, boca abajo, o la de arriba del montón de descartes, que se ve) y luego tiras una al montón. No puedes tirar la carta que acabas de coger del montón.
+Cerrar: en vez de tirar, la dejas boca abajo si con las 7 que te quedan tienes como mucho ${S.maxSueltas >= 7 ? 'las cartas que sean' : S.maxSueltas + ' carta(s)'} sin ligar y como mucho ${S.maxPuntos} puntos sin ligar. Si las 7 quedan ligadas haces −10 puntos.${S.chinchonGana ? ' Siete seguidas del mismo palo sin comodín es chinchón y gana la partida al instante.' : ''}
+Al cerrar alguien, las demás suman los puntos de sus cartas sin ligar${S.colgar ? ' (antes pueden colgar sus sueltas en las jugadas de quien cierra, salvo si hizo −10)' : ''}.
+Quien pasa de ${S.limite} puntos se apunta una raya (${String(S.raya).replace('.', ',')} €)${S.reenganche ? ' y se reengancha con los puntos de la que más tiene' : ' y queda fuera'}. Gana la partida la última que queda por debajo de ${S.limite} y se lleva el dinero de todas las rayas.
+Responde SIEMPRE solo con un objeto JSON, sin nada más. En "motivo" explica tu jugada en 12 palabras como mucho, en español, con gracia.`;
+}
+const gemCod = c => c ? cc(c) : '';
+const gemLista = cs => cs.length ? cs.map(c => `${gemCod(c)} (${nombreCarta(c)})`).join(', ') : 'ninguna';
+function gemEstado(i) {
+  const p = G.jugadores[i], a = analizar(p.mano);
+  const rivales = G.jugadores.map((q, k) => ({ q, k })).filter(x => x.k !== i)
+    .map(({ q, k }) => `- ${q.nombre}: ${q.puntos} puntos${q.fuera ? ' (fuera esta mano)' : ''}, ${q.rayas || 0} rayas; ha cogido del montón y aún tiene: ${gemLista((G.conocidas && G.conocidas[k]) || [])}`).join('\n');
+  return `Mano ${G.manoN}, turno ${G.turnos}. Quedan ${G.mazo.length} cartas en el mazo.${G.reciclado ? ' El montón ya se rebarajó.' : ''}
+Tú (${p.nombre}): ${p.puntos} puntos, ${p.rayas || 0} rayas.
+Rivales:
+${rivales}
+Montón de descartes (de abajo a arriba, las últimas): ${gemLista(G.descarte.slice(-10))}.
+Cartas tiradas en esta mano (todas): ${G.vistas.map(gemCod).join(' ') || 'ninguna'}.
+Tu mano: ${gemLista(p.mano)}.
+Tus jugadas ahora: ${a.jugadas.length ? a.jugadas.map(j => j.cartas.map(gemCod).join(' ')).join(' | ') : 'ninguna'}. Sueltas: ${a.sueltas.map(gemCod).join(' ') || 'ninguna'} (${a.muertos} puntos sin ligar).`;
+}
+function gemFallo(e) {
+  if (e && (e.status === 429 || /quota|exhaust/i.test(e.message || ''))) gemAgotado = true;
+  if (Date.now() - gemAvisado > 60000) { gemAvisado = Date.now(); aviso(gemAgotado ? '✨ Gemini: se acabó el cupo de hoy. Juega la Difícil por ella' : `✨ Gemini falló (${e && e.name === 'AbortError' ? 'tarda demasiado' : String(e && e.message || 'error').slice(0, 60)}). Juega la Difícil`); }
+  console.warn('gemini', e);
+}
+async function geminiRobo(i, t) {
+  const p = G.jugadores[i], top = G.descarte[G.descarte.length - 1];
+  p.gemMotivo = '';
+  if (!top || gemAgotado || !gemCfg().clave) return iaRobo(i);
+  mensaje(`✨ ${p.nombre} está pensando…`);
+  try {
+    const r = await gemPreguntar(`${gemEstado(i)}\n\nTe toca ROBAR. Arriba del montón está ${gemCod(top)} (${nombreCarta(top)}). ¿La coges o robas del mazo? Responde {"accion":"monton" o "mazo","motivo":"..."}`);
+    if (t !== token) return false;
+    const acc = String(r.accion || '').toLowerCase().replace('ó', 'o');
+    if (acc !== 'monton' && acc !== 'mazo') throw new Error('acción rara: ' + acc);
+    p.gemMotivo = r.motivo ? String(r.motivo).slice(0, 90) : '';
+    return acc === 'monton';
+  } catch (e) { gemFallo(e); return iaRobo(i); }
+}
+async function geminiTirada(i, t) {
+  const p = G.jugadores[i], proh = G.cogida;
+  if (gemAgotado || !gemCfg().clave) return iaTirada(i);
+  const cierres = new Set();
+  for (const c of p.mano) {
+    if (c.id === proh) continue;
+    const a = analizar(p.mano.filter(x => x !== c));
+    if (puedeCerrarCon(a)) cierres.add(`tirando ${gemCod(c)} cierras con ${a.muertos === 0 ? '−10' : a.muertos + ' puntos'}`);
+  }
+  mensaje(`✨ ${p.nombre} está pensando…`);
+  try {
+    const cogida = proh != null ? p.mano.find(c => c.id === proh) : null;
+    const r = await gemPreguntar(`${gemEstado(i)}\n${cogida ? `Acabas de coger del montón ${gemCod(cogida)}: no la puedes tirar.\n` : ''}
+Te toca TIRAR (tienes 8 cartas). ${cierres.size ? 'Puedes cerrar: ' + [...cierres].join('; ') + '.' : 'Ahora no puedes cerrar.'}
+Responde {"tira":"código de la carta","cierra":true o false,"motivo":"..."}`);
+    if (t !== token) return iaTirada(i);
+    const cod = String(r.tira || '').toLowerCase().replace(/\s/g, '').replace(/^(comod[ií]n|j)$/, '*');
+    const c = p.mano.find(x => x.id !== proh && gemCod(x) === cod);
+    if (!c) throw new Error('quiso tirar una carta que no tiene: ' + cod);
+    let cierra = !!r.cierra;
+    if (cierra && !puedeCerrarCon(analizar(p.mano.filter(x => x !== c)))) cierra = false;   // no puede cerrar con eso: solo la tira
+    const motivo = (r.motivo ? String(r.motivo).slice(0, 90) : '') || p.gemMotivo;
+    p.gemMotivo = '';
+    return { carta: c, cierra, motivo };
+  } catch (e) { gemFallo(e); p.gemMotivo = ''; return iaTirada(i); }
+}
+
 async function turnoIA(t) {
   const i = G.turno, p = G.jugadores[i];
   if (G.fase === 'robar') {
-  const deDesc = iaRobo(i);
+  const deDesc = p.nivel === 4 ? await geminiRobo(i, t) : iaRobo(i);
+  if (t !== token) return;
   if (!deDesc && hayQueRebarajar()) { await animarRebarajar(); if (t !== token) return; }
   const origen = deDesc ? cartaMonton() : cartaMazo();
   const c = robar(i, deDesc);
@@ -2109,7 +2234,8 @@ async function turnoIA(t) {
   pintar();
   await espera(ESPERA() * 0.7); if (t !== token) return;
   }
-  const d = iaTirada(i);
+  const d = p.nivel === 4 ? await geminiTirada(i, t) : iaTirada(i);
+  if (t !== token) return;
   if (d.cierra) {
     mensaje(`¡${p.nombre} cierra!`);
     await volar(avatarDe(i), cartaMonton(), dorsoHTML, VUELO()); if (t !== token) return;
@@ -2137,7 +2263,7 @@ async function turnoIA(t) {
     }
   }
   p.ultimo += ' y tiró ' + nombreCarta(d.carta);
-  mensaje(`${p.nombre} tira ${nombreCarta(d.carta)}`);
+  mensaje(`${p.nombre} tira ${nombreCarta(d.carta)}${d.motivo ? ` · ✨ «${gemEsc(d.motivo)}»` : ''}`);
   pintar(true);
   await espera(ESPERA() * 0.8); if (t === token) avanzar();
 }
@@ -2422,7 +2548,7 @@ function regFin(res) {
 /* ---- Perfil (estilo) de cada jugador, a partir del registro ----
    Personas por su cuenta de Google (o por nombre si no la hay); bots por nivel. */
 const escapar = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const PERFIL_K = 'mc-perfil', NIV_N = ['Fácil', 'Normal', 'Difícil', 'Experta'];
+const PERFIL_K = 'mc-perfil', NIV_N = ['Fácil', 'Normal', 'Difícil', 'Experta', 'Gemini'];
 const valCod = x => x === '*' ? 25 : Math.min(10, parseInt(x, 10) || 0);
 const claveJ = j => j.h ? (j.u ? 'u:' + j.u : 'n:' + j.n) : j.m ? 'm:' + j.m + ':' + j.nv : 'nv:' + j.nv;
 const perfil0 = (j) => ({ n: j.n, h: j.h, nv: j.nv, m: j.m || null, manos: 0, rD: 0, rM: 0, tir: 0, vTir: 0, altas: 0, bajas: 0, cierres: 0, m10: 0, ch: 0, tCierre: 0, pill: 0, pPill: 0, bajasG: 0, colg: 0, cogeTira: 0, sm: { h: sit0(), a: sit0() } });
@@ -2508,7 +2634,7 @@ async function pintarPerfil() {
   const yoK = new Set(['u:' + (miUid() || '-'), 'n:' + (PREF.nombre || '-')]);
   const gente = filas.filter(a => a.h).sort((x, y) => y.manos - x.manos).slice(0, 10);
   const bots = filas.filter(a => !a.h).sort((x, y) => ((x.nv ?? 0) - (y.nv ?? 0)) || ((x.m ? 1 : 0) - (y.m ? 1 : 0)));
-  const nomBot = a => a.m ? `🎭 ${escapar(a.n)} ${(Object.values(MANIAS).find(z => z.id === a.m) || {}).t || ''} (${NIV_N[a.nv] || 'bot'})` : '🤖 ' + (NIV_N[a.nv] || 'Bot') + ' de libro';
+  const nomBot = a => a.nv === 4 ? '✨ Gemini' : a.m ? `🎭 ${escapar(a.n)} ${(Object.values(MANIAS).find(z => z.id === a.m) || {}).t || ''} (${NIV_N[a.nv] || 'bot'})` : '🤖 ' + (NIV_N[a.nv] || 'Bot') + ' de libro';
   const num = (x, d = 1) => x == null ? '–' : (+x).toLocaleString('es-ES', { maximumFractionDigits: d });
   const dv = (x, y) => y ? x / y : null;
   const fila = (a, nombre) => `<tr><td>${nombre}</td><td>${a.manos}</td><td>${pc(a.rD, a.rD + a.rM) ?? '–'}${a.rD + a.rM ? ' %' : ''}</td><td>${num(dv(a.vTir, a.tir))}</td><td>${num(dv(a.tCierre, a.cierres))}</td><td>${pc(a.m10, a.cierres) ?? '–'}${a.cierres ? ' %' : ''}</td><td>${num(dv(a.pPill, a.pill))}</td></tr>`;
@@ -3519,7 +3645,7 @@ async function pintarRecords() {
     const e = d.estad || {}; if (!e.lg_yo_m) continue; gente++;
     for (const c of LIGA_C) {
       g[`lg_yo_${c}`] = (g[`lg_yo_${c}`] || 0) + (e[`lg_yo_${c}`] || 0);
-      for (const L of ['n3', 'n2', 'n1', 'n0']) g[`lg_${L}_${c}`] = (g[`lg_${L}_${c}`] || 0) + (e[`lgx_${L}_${c}`] || 0);
+      for (const L of ['n4', 'n3', 'n2', 'n1', 'n0']) g[`lg_${L}_${c}`] = (g[`lg_${L}_${c}`] || 0) + (e[`lgx_${L}_${c}`] || 0);
     }
   }
   const ligaGlobal = gente ? `<div class="grupo"><h3>🌍 Liga global de niveles</h3>${pintarLiga(g, { yo: `🙋 Personas (${gente})` })}</div>` : '';
