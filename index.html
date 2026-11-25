@@ -2124,6 +2124,24 @@ function htmlIA(nv) {
     <div class="seg" style="margin-top:8px"><button data-iaprueba="${nv}">Probar la clave</button></div>
     <div class="nota" id="iaEstado${nv}">${c.clave ? `Hoy: <b>${u.llamadas}</b> preguntas a ${d.nombre}, unos <b>${u.tokens.toLocaleString('es-ES')}</b> tokens${u.fallos ? `, ${u.fallos} fallos (jugó la Difícil)` : ''}.` : `Sin clave: el nivel ${d.ico} no aparece.`}</div>`;
 }
+const iaSinModoJson = {};
+// Lee la respuesta aunque venga con adornos: ```json, comas sobrantes, comillas simples, o cortada al final
+function leerJson(txt) {
+  let t = String(txt || '').replace(/```(json)?/gi, '');
+  const a = t.indexOf('{'); if (a < 0) return null;
+  t = t.slice(a);
+  const b = t.lastIndexOf('}');
+  const prueba = x => { try { const o = JSON.parse(x); return o && typeof o === 'object' ? o : null; } catch (e) { return null; } };
+  const arregla = x => x.replace(/,\s*}/g, '}').replace(/'/g, '"').replace(/([{,]\s*)([a-zA-Z_]+)\s*:/g, '$1"$2":');
+  if (b > 0) { const x = t.slice(0, b + 1); const o = prueba(x) || prueba(arregla(x)); if (o) return o; }
+  // cortada: cierra comillas y llave
+  let y = t.replace(/,\s*"[^"]*$/, ''); if ((y.match(/"/g) || []).length % 2) y += '"'; y += '}';
+  const o = prueba(y) || prueba(arregla(y)); if (o) return o;
+  // último recurso: sacar los campos sueltos con expresiones
+  const campo = k => { const m = new RegExp('"?' + k + '"?\\s*:\\s*"?([^",}]+)"?', 'i').exec(t); return m ? m[1].trim() : null; };
+  const res = {}; for (const k of ['accion', 'tira', 'cierra', 'motivo', 'ok']) { const v = campo(k); if (v != null) res[k] = k === 'cierra' ? /true|s[ií]/i.test(v) : v; }
+  return Object.keys(res).length ? res : null;
+}
 const saturado = e => e && (e.status >= 500 || /high demand|overloaded|unavailable|busy/i.test(e.message || ''));
 async function iaPreguntar(nv, texto) {
   const d = IAS[nv], { clave, modelo } = iaCfg(nv);
@@ -2132,7 +2150,11 @@ async function iaPreguntar(nv, texto) {
   let ultimo;
   for (const m of lista) {
     try { return await iaPreguntarCon(nv, texto, clave, m); }
-    catch (e) { ultimo = e; if (!saturado(e)) throw e; }
+    catch (e) {
+      ultimo = e;
+      if (e.malJson) { try { return await iaPreguntarCon(nv, texto + '\n\nIMPORTANTE: responde SOLO con el objeto JSON, completo y bien escrito.', clave, m); } catch (e2) { ultimo = e2; if (!saturado(e2)) throw e2; continue; } }
+      if (!saturado(e)) throw e;
+    }
   }
   throw ultimo;
 }
@@ -2148,17 +2170,18 @@ async function iaPreguntarCon(nv, texto, clave, modelo) {
     else r = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST', signal: ctl.signal,
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + clave },
-      body: JSON.stringify({ model: modelo, temperature: 0.4, max_tokens: 400, messages: [{ role: 'system', content: iaReglas() }, { role: 'user', content: texto }] })
+      body: JSON.stringify(Object.assign({ model: modelo, temperature: 0.4, max_tokens: 800, messages: [{ role: 'system', content: iaReglas() }, { role: 'user', content: texto }] }, iaSinModoJson[nv] ? {} : { response_format: { type: 'json_object' } }))
     });
     const j = await r.json().catch(() => ({}));
+    if (!r.ok && r.status === 400 && nv === 5 && !iaSinModoJson[nv] && /response_format|json/i.test(JSON.stringify(j))) { iaSinModoJson[nv] = true; return iaPreguntarCon(nv, texto, clave, modelo); }
     if (!r.ok) { iaApuntar(nv, 0, true); const e = new Error((j.error && (j.error.message || j.error)) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
     let tok, txt;
     if (nv === 4) { tok = (j.usageMetadata && j.usageMetadata.totalTokenCount) || 0; txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map(x => x.text || '').join(''); }
     else { tok = (j.usage && j.usage.total_tokens) || 0; txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ''; }
-    const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
-    if (a < 0 || b < a) { iaApuntar(nv, tok, true); throw new Error('respuesta sin JSON'); }
+    const o = leerJson(txt);
+    if (!o) { iaApuntar(nv, tok, true); const e = new Error('respuesta mal escrita'); e.malJson = true; throw e; }
     iaApuntar(nv, tok, false); iaUltimo[nv] = modelo;
-    return JSON.parse(txt.slice(a, b + 1));
+    return o;
   } finally { clearTimeout(to); }
 }
 async function probarIA(nv) {
