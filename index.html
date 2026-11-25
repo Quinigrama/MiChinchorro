@@ -952,7 +952,9 @@ function roboMC(i) {
 function conPesos(i, f) {
   const p = G.jugadores[i], prev = PS, m = maniaDe(p);
   PS = p.pesos || (m ? Object.assign({}, PD, m.pesos) : PD);
-  try { return f(); } finally { PS = prev; }
+  const prisa = !!(m && m.id === 'estratega' && finDePartida(i)), prevP = G.prisaTotal;
+  if (prisa) G.prisaTotal = true;
+  try { return f(); } finally { PS = prev; G.prisaTotal = prevP; }
 }
 // ¿Qué cartas pueden salir todavía? Tras rebarajar, el mazo nuevo son las que ya salieron al montón:
 // las que nunca salieron están en manos de otras y no van a llegar
@@ -965,6 +967,7 @@ function cartasQuePuedenSalir() {
 }
 // Prisa: si la mano se alarga (más de 6 vueltas) o se rebaraja el montón, importa más poder cerrar que guardar cartas bajas
 function urgencia() {
+  if (G && G.prisaTotal) return 1;   // Elvira la estratega en el final de la partida
   if (!G || !G.turnos) return 0;
   const v = G.turnos / Math.max(1, activos().length);
   return Math.max(G.reciclado ? 0.5 : 0, Math.min(1, (v - TX.prisaDesde) / TX.prisaRampa));
@@ -973,8 +976,17 @@ function urgencia() {
 const MANIAS = {
   'Andrés': { id: 'prudente', t: 'el prudente', pesos: { kPot: 0.35, pel: 1.2, alta: 0.35 } },     // cierra en cuanto puede y no se carga de cartas
   'Lucas': { id: 'arriesgado', t: 'el arriesgado', pesos: { kPot: 1.1 } },             // va a por el −10: no cierra pronto con puntos
-  'Matilde': { id: 'monton', t: 'la ojo avizor', pesos: {} }                            // coge del montón lo que le arrime algo
+  'Matilde': { id: 'monton', t: 'la ojo avizor', pesos: {} },                           // coge del montón lo que le arrime algo
+  'Elvira': { id: 'estratega', t: 'la estratega', pesos: {} }                            // juega a ganar la partida: en el final, cerrar es lo único que cuenta
 };
+// Elvira: la partida la gana quien cierra la última mano (con reenganche, al final todas están cerca del límite).
+// En el final (todas las rivales a EP.fin puntos o menos del límite) va con prisa total y cierra en cuanto puede,
+// aunque se pase del límite si queda por debajo de la rival que menos tiene (EP.margen).
+const EP = { fin: 20, margen: 4, pasarse: 1 };
+function finDePartida(i) {
+  const r = activos().filter(k => k !== i);
+  return r.length > 0 && r.every(k => G.jugadores[k].puntos >= S.limite - EP.fin);
+}
 function maniaDe(p) { return (!p || p.humano || p.remoto || S.manias === false) ? null : (MANIAS[p.nombre] || null); }
 function arrima(mano, c) {   // ¿la carta hace jugada, pareja o escalerita con algo de la mano?
   if (c.j) return true;
@@ -1022,12 +1034,17 @@ function iaRobo_(i) {
 function iaTirada_(i) {
   const p = G.jugadores[i], nivel = (p.nivel ?? S.nivel), proh = G.cogida;
   let ci = mejorCierre(p.mano, proh);
+  const mn = maniaDe(p);
+  if (ci && mn && mn.id === 'estratega' && finDePartida(i)) {
+    const tot = p.puntos + (ci.a.muertos === 0 ? -10 : ci.a.muertos);
+    const minR = Math.min(...activos().filter(k => k !== i).map(k => G.jugadores[k].puntos));
+    if (tot <= S.limite || (EP.pasarse && tot < minR + EP.margen)) return { carta: ci.c, cierra: true };
+  }
   // No cerrar si con esos puntos me paso del límite (me apuntaría yo la raya)
   if (ci && ci.a.muertos > 0 && p.puntos + ci.a.muertos > S.limite) {
     const ch = esChinchon(p.mano.filter(x => x !== ci.c));
     if (!(ch && ch.limpio)) ci = null;
   }
-  const mn = maniaDe(p);
   if (ci && mn && mn.id === 'arriesgado' && ci.a.muertos >= 2 && urgencia() < 0.5 && G.turnos < activos().length * 4) ci = null;   // espera al −10
   if (ci && mn && mn.id === 'prudente') return { carta: ci.c, cierra: true };   // cierra en cuanto puede
   if (ci && nivel === 3 && TX.mc && TX.decideCierre && ci.a.muertos > 0) {
@@ -1075,7 +1092,7 @@ function simularHastaFinal() {
   return G.ganador;
 }
 
-if (typeof module !== "undefined") module.exports = { PD, MANIAS, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+if (typeof module !== "undefined") module.exports = { PD, MANIAS, EP, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
 </script>
 <script>
@@ -1208,7 +1225,7 @@ const OPC = [
   { k: 'genero', t: 'Los personajes te hablan como a…', op: [['', 'Según tu avatar'], ['f', 'Una chica'], ['m', 'Un chico']] },
   { k: 'mesa', t: 'Con quién juegas', mesa: true },
   { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
-  { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la ojo avizor)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
+  { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la ojo avizor, Elvira la estratega)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
   { k: 'charla', t: 'Comentarios de los personajes 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
