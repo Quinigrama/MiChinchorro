@@ -1664,7 +1664,8 @@ if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoi
 /* ---------- Estadísticas de la jugadora ---------- */
 const EST0 = { partidas: 0, ganadas: 0, manos: 0, cierres: 0, menos10: 0, chinchones: 0, puntos: 0, pillada: 0, figurasPilladas: 0, rayas: 0, euros: 0, tiradas: 0, mejorables: 0, cierresPerdidos: 0, cogidasMonton: 0, cogidasUtiles: 0, manosPartidas: 0, partidasContadas: 0, manosMax: 0, desde: null };
 // Liga de niveles: por nivel (n0..n3), tú (yo) y personas online (per): manos, suma y suma² de puntos frente a la mesa, cierres, −10, rayas, partidas y ganadas
-const LIGA = ['n3', 'n2', 'n1', 'n0', 'yo', 'per'], LIGA_C = ['m', 'r', 'q', 'c', 'd', 'y', 'p', 'g'];
+// más, desde el 25/11/2026: k = partidas con esperado, e = ganadas esperadas por azar (1/jugadores), v = su varianza (para ver si se gana más de la cuenta)
+const LIGA = ['n3', 'n2', 'n1', 'n0', 'yo', 'per'], LIGA_C = ['m', 'r', 'q', 'c', 'd', 'y', 'p', 'g', 'k', 'e', 'v'];
 for (const L of LIGA) for (const c of LIGA_C) EST0[`lg_${L}_${c}`] = 0;
 // para la liga global: los bots solo los apunta quien lleva la partida (en una mesa online, el anfitrión), para no contarlos dos veces
 for (const L of ['n3', 'n2', 'n1', 'n0']) for (const c of LIGA_C) EST0[`lgx_${L}_${c}`] = 0;
@@ -1689,20 +1690,28 @@ function anotarLiga(res) {
 function anotarLigaFin() {
   if (G.ligaFin) return; G.ligaFin = true;
   const lleva = !(ONLINE && ONLINE.rol === 'invitado');
-  G.jugadores.forEach((p, i) => { const k = claveLiga(i); EST[`lg_${k}_p`]++; if (G.ganador === i) EST[`lg_${k}_g`]++; if (k[0] === 'n' && lleva) { EST[`lgx_${k}_p`]++; if (G.ganador === i) EST[`lgx_${k}_g`]++; } });
+  const pe = 1 / Math.max(1, G.jugadores.length);   // si todas jugaran igual, cada una ganaría 1 de cada N partidas
+  G.jugadores.forEach((p, i) => {
+    const k = claveLiga(i), pref = [`lg_${k}`]; if (k[0] === 'n' && lleva) pref.push(`lgx_${k}`);
+    for (const x of pref) { EST[`${x}_p`]++; if (G.ganador === i) EST[`${x}_g`]++; EST[`${x}_k`]++; EST[`${x}_e`] += pe; EST[`${x}_v`] += pe * (1 - pe); }
+  });
   guardarEst();
 }
 function pintarLiga(e, otrosNombres) {
   const NOM = Object.assign({ n3: '🧠 Experta', n2: '🔴 Difícil', n1: '🟡 Normal', n0: '🟢 Fácil', yo: '🙋 Tú', per: '📱 Personas online' }, otrosNombres || {});
   const filas = LIGA.filter(L => e[`lg_${L}_m`] > 0).map(L => {
     const n = e[`lg_${L}_m`], m = e[`lg_${L}_r`] / n, sd = Math.sqrt(Math.max(0, e[`lg_${L}_q`] / n - m * m));
-    return { L, n, m, ic: n > 1 ? 1.96 * sd / Math.sqrt(n) : 99, c: e[`lg_${L}_c`] / n, d: e[`lg_${L}_d`] / n, y: e[`lg_${L}_y`] / n, p: e[`lg_${L}_p`], g: e[`lg_${L}_g`] };
+    const p = e[`lg_${L}_p`] || 0, k = e[`lg_${L}_k`] || 0;
+    // ganadas esperadas: con las partidas apuntadas desde que existe el dato, extrapolado a todas (mismo tamaño de mesa)
+    const esp = k ? e[`lg_${L}_e`] / k * p : null, ve = k ? e[`lg_${L}_v`] / k * p : 0;
+    const z = esp != null && ve > 0 ? (e[`lg_${L}_g`] - esp) / Math.sqrt(ve) : 0;
+    return { L, n, m, ic: n > 1 ? 1.96 * sd / Math.sqrt(n) : 99, c: e[`lg_${L}_c`] / n, d: e[`lg_${L}_d`] / n, y: e[`lg_${L}_y`] / n, p, g: e[`lg_${L}_g`], esp, z };
   }).sort((a, b) => a.m - b.m);
   if (!filas.length) return '<div class="nota">Aún no hay manos. Juega unas cuantas y aquí verás qué nivel juega mejor.</div>';
   const pc = x => Math.round(x * 100) + ' %', num = x => (x > 0 ? '+' : '') + x.toFixed(1).replace('.', ',');
   return `<table class="liga"><tr><th>Nivel</th><th>Manos</th><th>Pts vs mesa</th><th>Cierra</th><th>−10</th><th>Raya</th><th>Gana</th></tr>
-    ${filas.map(f => `<tr><td>${NOM[f.L]}</td><td>${f.n}</td><td><b>${num(f.m)}</b><small> ±${f.ic.toFixed(1).replace('.', ',')}</small>${f.n < 100 ? ' 🤏' : ''}</td><td>${pc(f.c)}</td><td>${pc(f.d)}</td><td>${pc(f.y)}</td><td>${f.p ? `${f.g}/${f.p}` : '—'}</td></tr>`).join('')}</table>
-    <div class="nota">Puntos de cada uno menos la media de los demás en la misma mano: <b>cuanto más negativo, mejor</b>. El ± es el margen de error: si dos niveles se solapan, aún no se puede decir cuál es mejor. 🤏 = menos de 100 manos. Cuenta por nivel, no por personaje.</div>`;
+    ${filas.map(f => `<tr><td>${NOM[f.L]}</td><td>${f.n}</td><td><b>${num(f.m)}</b><small> ±${f.ic.toFixed(1).replace('.', ',')}</small>${f.n < 100 ? ' 🤏' : ''}</td><td>${pc(f.c)}</td><td>${pc(f.d)}</td><td>${pc(f.y)}</td><td>${f.p ? `${f.g}/${f.p}` : '—'}${f.esp != null && f.p ? `<br><small>esp. ${f.esp.toFixed(1).replace('.', ',')}${f.z > 1.96 ? ' ⬆️' : f.z < -1.96 ? ' ⬇️' : ''}</small>` : ''}</td></tr>`).join('')}</table>
+    <div class="nota">Puntos de cada uno menos la media de los demás en la misma mano: <b>cuanto más negativo, mejor</b>. El ± es el margen de error: si dos niveles se solapan, aún no se puede decir cuál es mejor. 🤏 = menos de 100 manos. «Gana»: partidas ganadas; «esp.» son las que tocarían por azar si todas jugaran igual (⬆️ / ⬇️: gana de verdad más o menos de la cuenta). Cuenta por nivel, no por personaje.</div>`;
 }
 const guardarEst = () => { if (!EST.desde) EST.desde = new Date().toISOString().slice(0, 10); LS.set('mc-estad', EST); };
 function anotarTirada(mano, id) {
@@ -2398,7 +2407,9 @@ const escapar = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 const PERFIL_K = 'mc-perfil', NIV_N = ['Fácil', 'Normal', 'Difícil', 'Experta'];
 const valCod = x => x === '*' ? 25 : Math.min(10, parseInt(x, 10) || 0);
 const claveJ = j => j.h ? (j.u ? 'u:' + j.u : 'n:' + j.n) : j.m ? 'm:' + j.m + ':' + j.nv : 'nv:' + j.nv;
-const perfil0 = (j) => ({ n: j.n, h: j.h, nv: j.nv, m: j.m || null, manos: 0, rD: 0, rM: 0, tir: 0, vTir: 0, altas: 0, bajas: 0, cierres: 0, m10: 0, ch: 0, tCierre: 0, pill: 0, pPill: 0, bajasG: 0, colg: 0, cogeTira: 0 });
+const perfil0 = (j) => ({ n: j.n, h: j.h, nv: j.nv, m: j.m || null, manos: 0, rD: 0, rM: 0, tir: 0, vTir: 0, altas: 0, bajas: 0, cierres: 0, m10: 0, ch: 0, tCierre: 0, pill: 0, pPill: 0, bajasG: 0, colg: 0, cogeTira: 0, sm: { h: sit0(), a: sit0() } });
+// según el marcador: h = holgada, a = apurada (le faltan 25 puntos o menos para el límite)
+function sit0() { return { manos: 0, cierres: 0, tCierre: 0, tir: 0, vTir: 0, pill: 0, pPill: 0, rD: 0, rM: 0 }; }
 function sumarMano(A, r) {
   const fin = r && r.fin; if (!fin || fin.nula || !r.js || !r.ev) return;
   const st = {};
@@ -2406,27 +2417,33 @@ function sumarMano(A, r) {
     if (j.f) return;
     const k = claveJ(j), a = A[k] || (A[k] = perfil0(j));
     if (j.h && j.n) a.n = j.n;
-    a.manos++; st[i] = { a, turnos: 0, cogidas: new Set() };
+    a.manos++;
+    if (!a.sm) a.sm = { h: sit0(), a: sit0() };
+    const lim = (r.cfg && r.cfg.l) || 100, pts = r.pts ? r.pts[i] : null;
+    const b = pts == null ? null : a.sm[pts >= lim - 25 ? 'a' : 'h'];
+    if (b) b.manos++;
+    st[i] = { a, b, turnos: 0, cogidas: new Set() };
   });
   for (const e of r.ev) {
     const m = /^(\d+)([MDTC])(.*)$/.exec(e); if (!m) continue;
     const s = st[m[1]]; if (!s) continue;
-    const a = s.a, c = m[3];
-    if (m[2] === 'M') { a.rM++; s.turnos++; }
-    else if (m[2] === 'D') { a.rD++; s.turnos++; s.cogidas.add(c); }
-    else if (m[2] === 'T') { const v = valCod(c); a.tir++; a.vTir += v; if (v >= 10) a.altas++; if (v <= 3) a.bajas++; if (s.cogidas.has(c)) a.cogeTira++; }
-    else if (m[2] === 'C') { a.cierres++; a.tCierre += s.turnos; }
+    const a = s.a, b = s.b, c = m[3];
+    if (m[2] === 'M') { a.rM++; s.turnos++; if (b) b.rM++; }
+    else if (m[2] === 'D') { a.rD++; s.turnos++; s.cogidas.add(c); if (b) b.rD++; }
+    else if (m[2] === 'T') { const v = valCod(c); a.tir++; a.vTir += v; if (v >= 10) a.altas++; if (v <= 3) a.bajas++; if (s.cogidas.has(c)) a.cogeTira++; if (b) { b.tir++; b.vTir += v; } }
+    else if (m[2] === 'C') { a.cierres++; a.tCierre += s.turnos; if (b) { b.cierres++; b.tCierre += s.turnos; } }
   }
   const lista = x => x ? x.split(' ').filter(Boolean) : [];
   for (const f of fin.f || []) {
     const s = st[f.i]; if (!s) continue; const a = s.a;
     if (f.i === fin.c) { if (f.p === -10) a.m10++; if (fin.ch) a.ch++; }
-    else { a.pill++; a.pPill += f.p; a.bajasG += lista(f.s).filter(x => x !== '*' && parseInt(x, 10) <= 2).length; a.colg += lista(f.cg).length; }
+    else { a.pill++; a.pPill += f.p; if (s.b) { s.b.pill++; s.b.pPill += f.p; } a.bajasG += lista(f.s).filter(x => x !== '*' && parseInt(x, 10) <= 2).length; a.colg += lista(f.cg).length; }
   }
 }
 const claveReg = r => r.t + '-' + r.m + '-' + (r.ap || '');
 async function datosPerfil() {
-  const P = LS.get(PERFIL_K, null) || { v: 1, hasta: 0, A: {}, vistos: [] };
+  let P = LS.get(PERFIL_K, null);
+  if (!P || P.v !== 2) P = { v: 2, hasta: 0, A: {}, vistos: [] };   // v2: con el desglose según el marcador (se vuelve a bajar todo)
   const N = window.Nube;
   if (N && N.usuario && N.bajarJugadas) {
     try {
@@ -2486,7 +2503,18 @@ async function pintarPerfil() {
     const txt = a.manos < 30 ? `Pocas manos todavía (${a.manos} de 30) para sacar conclusiones.` : t.length ? t.join(' · ') : 'Juega muy parecido a la media de la mesa.';
     return `<div class="nota" style="text-align:left;margin-top:6px"><b>${a.h ? (yoK.has(a.k) ? '🙋 ' : '') + escapar(a.n || 'Persona') : nomBot(a)}:</b> ${txt}</div>`;
   }).join('');
-  caja.innerHTML = tabla + fichas;
+  caja.innerHTML = tabla + fichas + tablaMarcador(gente, bots, yoK, nomBot, num);
+}
+// ¿Cambia cada uno su juego según el marcador? (los bots de libro juegan igual vayan como vayan)
+function tablaMarcador(gente, bots, yoK, nomBot, num) {
+  const lista = gente.map(a => [a, (yoK.has(a.k) ? '🙋 ' : '') + escapar(a.n || 'Persona')]).concat(bots.map(a => [a, nomBot(a)]))
+    .filter(([a]) => a.sm && a.sm.a.manos >= 3 && a.sm.h.manos >= 3);
+  if (!lista.length) return '<div class="nota" style="margin-top:10px">🎯 <b>Según el marcador:</b> aún no hay manos jugadas con 75 puntos o más (o el límite que tengáis menos 25). Saldrá aquí cuando las haya.</div>';
+  const dv = (x, y) => y ? x / y : null, pcs = (x, y) => y ? Math.round(100 * x / y) + ' %' : '–';
+  const celdas = b => `<td>${b.manos}</td><td>${pcs(b.cierres, b.manos)}</td><td>${num(dv(b.vTir, b.tir))}</td><td>${pcs(b.rD, b.rD + b.rM)}</td><td>${num(dv(b.pPill, b.pill))}</td>`;
+  const filas = lista.map(([a, nom]) => `<tr><td rowspan="2">${nom}</td><td>😌</td>${celdas(a.sm.h)}</tr><tr><td>😬</td>${celdas(a.sm.a)}</tr>`).join('');
+  return `<h4 style="margin:14px 0 4px">🎯 Según el marcador</h4><table class="liga"><tr><th>Jugador</th><th></th><th>Manos</th><th>Cierra</th><th>Tira (valor)</th><th>Del montón</th><th>Pillada</th></tr>${filas}</table>
+    <div class="nota">😌 holgado · 😬 apurado (a 25 puntos o menos del límite, al empezar la mano). «Cierra»: de cada 100 manos, en cuántas cierra. Si una persona cambia mucho de una fila a otra y los bots no, ahí está su truco 😉</div>`;
 }
 let subiendoReg = false;
 async function subirRegistro() {
