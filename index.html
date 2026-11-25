@@ -2105,7 +2105,7 @@ function gemCfg() { return Object.assign({ clave: '', modelo: 'gemini-flash-late
 function nivOpc() { const o = [[0, '🟢'], [1, '🟡'], [2, '🔴'], [3, '🧠']]; if (gemCfg().clave) o.push([4, '✨']); return o; }
 function gemUso() { const hoy = new Date().toISOString().slice(0, 10), u = LS.get(GEM_USO, {}); return u.dia === hoy ? u : { dia: hoy, llamadas: 0, tokens: 0, fallos: 0 }; }
 function gemApuntar(tok, fallo) { const u = gemUso(); u.llamadas++; u.tokens += tok || 0; if (fallo) u.fallos++; LS.set(GEM_USO, u); }
-let gemAgotado = false, gemAvisado = 0;
+let gemAgotado = false, gemAvisado = 0, gemUltimo = '';
 function htmlGemini() {
   const c = gemCfg(), u = gemUso();
   return `<div class="nota" style="text-align:left;margin-bottom:6px">Pon tu clave gratuita de <b>aistudio.google.com</b> («Get API key» → «Create API key»). Se guarda <b>solo en este móvil</b>. Luego, en «Con quién juegas», elige ✨ para cualquier personaje.</div>
@@ -2114,9 +2114,20 @@ function htmlGemini() {
     <div class="seg" style="margin-top:8px"><button data-gemprueba="1">Probar la clave</button></div>
     <div class="nota" id="gemEstado">${c.clave ? `Hoy: <b>${u.llamadas}</b> preguntas a Gemini, unos <b>${u.tokens.toLocaleString('es-ES')}</b> tokens${u.fallos ? `, ${u.fallos} fallos (jugó la Difícil)` : ''}.` : 'Sin clave: el nivel ✨ no aparece.'}</div>`;
 }
+// Si el modelo elegido está saturado (503/500), prueba con los de reserva
+const GEM_RESERVA = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
 async function gemPreguntar(texto) {
   const { clave, modelo } = gemCfg();
   if (!clave) throw new Error('sin clave');
+  const lista = [...new Set([modelo || 'gemini-flash-latest', ...GEM_RESERVA])];
+  let ultimo;
+  for (const m of lista) {
+    try { return await gemPreguntarCon(texto, clave, m); }
+    catch (e) { ultimo = e; if (!(e.status >= 500 || /high demand|overloaded|unavailable/i.test(e.message || ''))) throw e; }
+  }
+  throw ultimo;
+}
+async function gemPreguntarCon(texto, clave, modelo) {
   const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 25000);
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo || 'gemini-flash-latest')}:generateContent`, {
@@ -2130,13 +2141,13 @@ async function gemPreguntar(texto) {
     const txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map(x => x.text || '').join('');
     const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
     if (a < 0 || b < a) { gemApuntar(tok, true); throw new Error('respuesta sin JSON'); }
-    gemApuntar(tok, false);
+    gemApuntar(tok, false); gemUltimo = modelo;
     return JSON.parse(txt.slice(a, b + 1));
   } finally { clearTimeout(to); }
 }
 async function probarGemini() {
   if ($('gemEstado')) $('gemEstado').textContent = 'Probando…';
-  try { const r = await gemPreguntar('Esto es una prueba. Responde solo {"ok":true,"motivo":"un saludo corto en español"}'); gemAgotado = false; if ($('gemEstado')) $('gemEstado').innerHTML = `✅ Funciona. Gemini dice: «${gemEsc(r.motivo || 'ok')}»`; }
+  try { const r = await gemPreguntar('Esto es una prueba. Responde solo {"ok":true,"motivo":"un saludo corto en español"}'); gemAgotado = false; if ($('gemEstado')) $('gemEstado').innerHTML = `✅ Funciona${gemUltimo ? ` (con ${gemEsc(gemUltimo)})` : ''}. Gemini dice: «${gemEsc(r.motivo || 'ok')}»`; }
   catch (e) { if ($('gemEstado')) $('gemEstado').textContent = '❌ No funciona: ' + (e.name === 'AbortError' ? 'no responde (25 s)' : e.message); }
 }
 function gemReglas() {
