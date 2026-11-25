@@ -2124,7 +2124,7 @@ function htmlIA(nv) {
     <div class="seg" style="margin-top:8px"><button data-iaprueba="${nv}">Probar la clave</button></div>
     <div class="nota" id="iaEstado${nv}">${c.clave ? `Hoy: <b>${u.llamadas}</b> preguntas a ${d.nombre}, unos <b>${u.tokens.toLocaleString('es-ES')}</b> tokens${u.fallos ? `, ${u.fallos} fallos (jugó la Difícil)` : ''}.` : `Sin clave: el nivel ${d.ico} no aparece.`}</div>`;
 }
-const iaSinModoJson = {};
+const iaSinModoJson = {}, iaPiensa = {};   // DeepSeek piensa por defecto: se lo quitamos (más rápido y barato); si no lo admite, le damos más espacio
 // Lee la respuesta aunque venga con adornos: ```json, comas sobrantes, comillas simples, o cortada al final
 function leerJson(txt) {
   let t = String(txt || '').replace(/```(json)?/gi, '');
@@ -2170,14 +2170,15 @@ async function iaPreguntarCon(nv, texto, clave, modelo) {
     else r = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST', signal: ctl.signal,
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + clave },
-      body: JSON.stringify(Object.assign({ model: modelo, temperature: 0.4, max_tokens: 800, messages: [{ role: 'system', content: iaReglas() }, { role: 'user', content: texto }] }, iaSinModoJson[nv] ? {} : { response_format: { type: 'json_object' } }))
+      body: JSON.stringify(Object.assign({ model: modelo, temperature: 0.4, max_tokens: 800, messages: [{ role: 'system', content: iaReglas() }, { role: 'user', content: texto }] }, iaSinModoJson[nv] ? {} : { response_format: { type: 'json_object' } }, iaPiensa[nv] ? { max_tokens: 4000 } : { thinking: { type: 'disabled' } }))
     });
     const j = await r.json().catch(() => ({}));
+    if (!r.ok && r.status === 400 && nv === 5 && !iaPiensa[nv] && /thinking/i.test(JSON.stringify(j))) { iaPiensa[nv] = true; return iaPreguntarCon(nv, texto, clave, modelo); }
     if (!r.ok && r.status === 400 && nv === 5 && !iaSinModoJson[nv] && /response_format|json/i.test(JSON.stringify(j))) { iaSinModoJson[nv] = true; return iaPreguntarCon(nv, texto, clave, modelo); }
     if (!r.ok) { iaApuntar(nv, 0, true); const e = new Error((j.error && (j.error.message || j.error)) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
     let tok, txt;
     if (nv === 4) { tok = (j.usageMetadata && j.usageMetadata.totalTokenCount) || 0; txt = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || []).map(x => x.text || '').join(''); }
-    else { tok = (j.usage && j.usage.total_tokens) || 0; txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ''; }
+    else { tok = (j.usage && j.usage.total_tokens) || 0; const msg = (j.choices && j.choices[0] && j.choices[0].message) || {}; txt = msg.content || msg.reasoning_content || ''; }
     const o = leerJson(txt);
     if (!o) { iaApuntar(nv, tok, true); const e = new Error('respuesta mal escrita'); e.malJson = true; throw e; }
     iaApuntar(nv, tok, false); iaUltimo[nv] = modelo;
