@@ -824,6 +824,7 @@ function roboExperta(i) {
 /* ---- Experta: simulación Monte Carlo con repartos posibles ---- */
 function clonarG() {
   const c = Object.assign({}, G);
+  c.prisaTotal = false;   // la prisa de Elvira es solo suya: en las simulaciones cada una decide la suya
   c.jugadores = G.jugadores.map(j => Object.assign({}, j, { mano: j.mano.slice() }));
   c.mazo = G.mazo.slice(); c.descarte = G.descarte.slice(); c.vistas = G.vistas.slice();
   c.cogidas = {}; for (const k in G.cogidas) c.cogidas[k] = G.cogidas[k].slice();
