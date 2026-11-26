@@ -73,7 +73,7 @@ function mejorCierre(mano8, prohibida) {
    Solo usa información que una jugadora atenta conoce: su mano, el montón,
    las cartas que cada rival ha cogido del montón (y no ha soltado) y, tras
    rebarajar, qué cartas forman el mazo nuevo. Nunca mira cartas ocultas. */
-const TX = { pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1, wRaya: 25, limiteReal: 0, wPrisa: 6, bajaValor: 0.9, prisaDesde: 6, prisaRampa: 3 };
+const TX = { wPartida: 0, kCrit: 1, pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1, wRaya: 25, limiteReal: 0, wPrisa: 6, bajaValor: 0.9, prisaDesde: 6, prisaRampa: 3 };
 function poolMazo(i) {
   // cartas que pueden salir del mazo
   const fuera = new Set(G.jugadores[i].mano.map(c => c.id));
@@ -228,16 +228,32 @@ function rollout(g, i, accion) {
     const rRiesgo = W ? 0.5 * W * (raya(i, mia) - (n ? rOtras / n : 0)) : 0;
     return v * TX.hoja - (TX.relativa && n ? otros / n : 0) + rRiesgo;
   }
-  if (res.chinchon && res.chinchon.limpio && S.chinchonGana) return res.cierra === i ? -60 : 30;   // si el chinchón no gana, cuenta como un −10 normal
+  if (res.chinchon && res.chinchon.limpio && S.chinchonGana) return res.cierra === i ? -60 - TX.wPartida : 30 + TX.wPartida / 3;   // si el chinchón no gana, cuenta como un −10 normal
   let mio = 0, otros = 0, n = 0, rMia = 0, rOtras = 0;
   for (const f of res.filas) { if (f.i === i) { mio = f.puntos; rMia = raya(i, f.puntos); } else { otros += f.puntos; rOtras += raya(f.i, f.puntos); n++; } }
-  return mio - (n ? otros / n : 0) + W * (rMia - (n ? rOtras / n : 0));
+  return mio - (n ? otros / n : 0) + W * (rMia - (n ? rOtras / n : 0)) + valorPartida(res, base, LIM, i);
+}
+// La Experta «sabe» el final: si con esta mano la partida se acaba, ganarla vale TX.wPartida puntos (y perderla, lo mismo repartido)
+function valorPartida(res, base, LIM, i) {
+  if (!TX.wPartida || !S.reenganche) return 0;
+  const tot = {}, act = res.filas.map(f => f.i);
+  for (const f of res.filas) tot[f.i] = base[f.i] + f.puntos;
+  const quedan = act.filter(k => tot[k] <= LIM);
+  if (quedan.length >= 2) return 0;                     // sigue la partida
+  const gana = quedan.length === 1 ? quedan[0] : act.reduce((a, k) => tot[k] < tot[a] ? k : a, act[0]);
+  return gana === i ? -TX.wPartida : TX.wPartida / Math.max(1, act.length - 1);
+}
+// Momento decisivo: puede cerrar o alguien (ella incluida) está cerca del límite → piensa más (TX.kCrit veces)
+function momentoCritico(i) {
+  const LIM = TX.limiteReal || S.limite;
+  if (mejorCierre(G.jugadores[i].mano, G.cogida)) return true;
+  return activos().some(k => G.jugadores[k].puntos >= LIM - 25);
 }
 function semillasMC(n) { const r = []; for (let k = 0; k < n; k++) r.push(Math.floor(Math.random() * 2 ** 31)); return r; }
 function aleatDe(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function evaluarOpciones(i, opciones) {
   // mismas cartas imaginadas para todas las opciones: así la comparación es justa
-  const semillas = semillasMC(TX.K);
+  const semillas = semillasMC(Math.round(TX.K * (TX.kCrit > 1 && momentoCritico(i) ? TX.kCrit : 1)));
   const rndReal = rnd;
   const medias = opciones.map(() => 0);
   for (const s of semillas) {
