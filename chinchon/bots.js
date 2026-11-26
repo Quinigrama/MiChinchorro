@@ -432,5 +432,15 @@ function simularHastaFinal() {
   return G.ganador;
 }
 
-if (typeof module !== "undefined") module.exports = { PD, MANIAS, EP, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+/* ---- Pensar en otro hilo (Web Worker, chinchon/ia-worker.js) ----
+   Recibe una copia del estado (S y G, copiados con structuredClone por postMessage) y decide la tirada. */
+function tiradaDesdeOtroHilo(datos) {
+  for (const k in S) delete S[k];
+  Object.assign(S, datos.S);
+  G = datos.G;
+  const d = iaTirada(datos.i);
+  return { id: d.carta.id, cierra: !!d.cierra };
+}
+
+if (typeof module !== "undefined") module.exports = { tiradaDesdeOtroHilo, AN_STATS: typeof AN_STATS !== "undefined" ? AN_STATS : null, PD, MANIAS, EP, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 

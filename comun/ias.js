@@ -196,7 +196,7 @@ async function turnoIA(t) {
   pintar();
   await espera(ESPERA() * 0.7); if (t !== token) return;
   }
-  const d = esIA(p.nivel) ? await iaTiradaAsync(i, t) : iaTirada(i);
+  const d = esIA(p.nivel) ? await iaTiradaAsync(i, t) : await iaTiradaHilo(i);
   if (t !== token) return;
   if (d.cierra) {
     mensaje(`¡${p.nombre} cierra!`);

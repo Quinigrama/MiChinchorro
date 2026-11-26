@@ -82,8 +82,33 @@ function nombreCarta(c) {
   return n + ' de ' + PALOS[c.s];
 }
 
-/* ---- Mejor reparto de una mano en jugadas (tríos/cuartetos y escaleras, con comodines) ---- */
+/* ---- Mejor reparto de una mano en jugadas (tríos/cuartetos y escaleras, con comodines) ----
+   Con caché: la Experta analiza millones de veces las mismas manos en sus simulaciones. Se guarda el resultado
+   por posiciones (qué cartas de la lista van en cada jugada) y se rehace con las cartas de cada llamada,
+   así devuelve exactamente lo mismo que sin caché (mismos objetos de carta, mismo orden). */
+const AN_CACHE = new Map(); let anClaveS = '';
 function analizar(cartas) {
+  const cs = S.baraja + '|' + S.valorComodin + '|' + S.figuras;
+  if (cs !== anClaveS) { AN_CACHE.clear(); anClaveS = cs; }
+  // clave: las cartas reales por su id (único); las imaginarias de la Experta (id < 0) y los comodines, con su palo y número
+  let k = '';
+  for (let i = 0; i < cartas.length; i++) { const c = cartas[i]; k += (c.id >= 0 && !c.j) ? c.id + ',' : (c.j ? '*' : c.s + '.' + c.r) + '.' + c.id + ','; }
+  let h = AN_CACHE.get(k);
+  if (!h) {
+    AN_STATS.f++;
+    const r = analizarCalc(cartas), pos = new Map();
+    for (let i = 0; i < cartas.length; i++) pos.set(cartas[i], i);
+    h = { m: r.muertos, j: r.jugadas.map(j => { const o = Object.assign({}, j); o.cartas = j.cartas.map(c => pos.get(c)); return o; }), s: r.sueltas.map(c => pos.get(c)) };
+    if (AN_CACHE.size > 300000) AN_CACHE.clear();
+    AN_CACHE.set(k, h);
+  } else AN_STATS.a++;
+  const jug = new Array(h.j.length);
+  for (let t = 0; t < h.j.length; t++) { const o = Object.assign({}, h.j[t]), ix = o.cartas, cs = new Array(ix.length); for (let u = 0; u < ix.length; u++) cs[u] = cartas[ix[u]]; o.cartas = cs; jug[t] = o; }
+  const su = new Array(h.s.length); for (let u = 0; u < h.s.length; u++) su[u] = cartas[h.s[u]];
+  return { muertos: h.m, jugadas: jug, sueltas: su };
+}
+const AN_STATS = { a: 0, f: 0 };   // aciertos y fallos de la caché (para medir)
+function analizarCalc(cartas) {
   const reales = cartas.filter(c => !c.j), joks = cartas.filter(c => c.j);
   const n = reales.length, J = joks.length, R = rangos().length;
   const cands = [];
