@@ -256,7 +256,7 @@ function repartir() {
   repartirDe(cortarEn(b, 0.25 + rnd() * 0.5));
 }
 function repartirDe(mazo) {
-  G.mazo = mazo; G.todas = G.mazo.slice(); G.descarte = []; G.vistas = []; G.cogidas = {}; G.conocidas = {}; G.reciclado = null; G.turnos = 0;
+  G.mazo = mazo; G.todas = G.mazo.slice(); G.descarte = []; G.vistas = []; G.cogidas = {}; G.conocidas = {}; G.tiradasDe = {}; G.reciclado = null; G.turnos = 0;
   G.jugadores.forEach(j => { j.mano = []; j.ultimo = ''; });
   for (let k = 0; k < 7; k++) for (const i of activos()) G.jugadores[i].mano.push(G.mazo.pop());
   G.descarte.push(G.mazo.pop());
@@ -301,6 +301,8 @@ function tirar(i, cartaId) {
   j.mano = j.mano.filter(x => x.id !== cartaId);
   if (G.conocidas && G.conocidas[i]) G.conocidas[i] = G.conocidas[i].filter(x => x.id !== cartaId);
   G.descarte.push(c); G.vistas.push(c);
+  if (!G.tiradasDe) G.tiradasDe = {};
+  (G.tiradasDe[i] = G.tiradasDe[i] || []).push(c);   // lo que ha tirado cada una en esta mano (lo ve toda la mesa)
   G.turno = siguienteActivo(i); G.fase = 'robar'; G.turnos++;
   return c;
 }

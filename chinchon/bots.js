@@ -73,7 +73,7 @@ function mejorCierre(mano8, prohibida) {
    Solo usa información que una jugadora atenta conoce: su mano, el montón,
    las cartas que cada rival ha cogido del montón (y no ha soltado) y, tras
    rebarajar, qué cartas forman el mazo nuevo. Nunca mira cartas ocultas. */
-const TX = { wPartida: 0, kCrit: 1, pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1, wRaya: 25, limiteReal: 0, wPrisa: 6, bajaValor: 0.9, prisaDesde: 6, prisaRampa: 3 };
+const TX = { sesgo: 1, atrae: 1, wPartida: 0, kCrit: 1, pcMul: 1, pcAdd: 0, peligro: 0.6, wPar: 1, wEsc: 0.75, bEsc: 0, bHueco: 0, kPot: 0.7, kDef: 0, uRobo: 0.5, robo: 'exp', mc: 1, K: 40, cand: 3, prof: 4, hoja: 1, relativa: 1, decideCierre: 1, margenEspera: 1, wRaya: 25, limiteReal: 0, wPrisa: 6, bajaValor: 0.9, prisaDesde: 6, prisaRampa: 3 };
 function poolMazo(i) {
   // cartas que pueden salir del mazo
   const fuera = new Set(G.jugadores[i].mano.map(c => c.id));
@@ -165,10 +165,67 @@ function clonarG() {
   c.mazo = G.mazo.slice(); c.descarte = G.descarte.slice(); c.vistas = G.vistas.slice();
   c.cogidas = {}; for (const k in G.cogidas) c.cogidas[k] = G.cogidas[k].slice();
   c.conocidas = {}; for (const k in (G.conocidas || {})) c.conocidas[k] = G.conocidas[k].slice();
+  c.tiradasDe = {}; for (const k in (G.tiradasDe || {})) c.tiradasDe[k] = G.tiradasDe[k].slice();
   return c;
+}
+// Determinización sesgada: imagina las manos de las rivales según lo que han hecho en esta mano.
+// Lo que una rival ha tirado le sobraba: es menos probable que guarde cartas que ligan con eso (mismo número,
+// o mismo palo a 1–2 de distancia): peso TX.sesgo por cada tirada. Lo que cogió del montón y sigue teniendo
+// lo busca: más probable que tenga cartas que ligan con eso: peso TX.atrae.
+function pesoCarta(c, k) {
+  let w = 1;
+  if (c.j) return w;
+  const liga = d => !d.j && (d.r === c.r || (d.s === c.s && Math.abs(rIdx(d.r) - rIdx(c.r)) <= 2));
+  if (TX.sesgo !== 1) for (const d of (G.tiradasDe && G.tiradasDe[k]) || []) if (liga(d)) w *= TX.sesgo;
+  if (TX.atrae !== 1) for (const d of (G.conocidas && G.conocidas[k]) || []) if (liga(d)) w *= TX.atrae;
+  return w;
+}
+function determinizarSesgada(i, aleat) {
+  const g = clonarG();
+  const conocidasDe = k => new Set((G.conocidas[k] || []).map(c => c.id));
+  const huecos = {}, rivales = [];
+  let pool = [];
+  g.jugadores.forEach((p, k) => {
+    if (k === i || p.fuera) return;
+    const kn = conocidasDe(k); let n = 0;
+    p.mano.forEach(c => { if (!kn.has(c.id)) { pool.push(c); n++; } });
+    huecos[k] = n; rivales.push(k);
+  });
+  pool.push(...g.mazo);
+  // tras rebarajar se sabe qué cartas pueden estar en el mazo: las demás ocultas van seguro en manos
+  const rec = G.reciclado ? new Set(G.reciclado) : null;
+  const forzadas = rec ? pool.filter(c => !rec.has(c.id)) : [];
+  if (rec) pool = pool.filter(c => rec.has(c.id));
+  const nuevas = {}; rivales.forEach(k => nuevas[k] = []);
+  const elegir = (cs, peso) => { let t = 0; const w = cs.map(c => { const x = peso(c); t += x; return x; }); let u = aleat() * t; for (let a = 0; a < cs.length; a++) { u -= w[a]; if (u <= 0) return a; } return cs.length - 1; };
+  // primero las forzadas: a qué rival van, según lo probable que es que la tenga cada una
+  for (const c of forzadas) {
+    const libres = rivales.filter(k => nuevas[k].length < huecos[k]);
+    if (!libres.length) break;
+    const a = elegir(libres, k => pesoCarta(c, k));
+    nuevas[libres[a]].push(c);
+  }
+  // luego el resto de huecos, sacando del montón de posibles con su peso
+  for (const k of rivales) {
+    while (nuevas[k].length < huecos[k] && pool.length) {
+      const a = elegir(pool, c => pesoCarta(c, k));
+      nuevas[k].push(pool[a]); pool.splice(a, 1);
+    }
+  }
+  // el mazo, con lo que sobra, barajado
+  for (let a = pool.length - 1; a > 0; a--) { const b = Math.floor(aleat() * (a + 1)); [pool[a], pool[b]] = [pool[b], pool[a]]; }
+  g.mazo = pool.slice(0, G.mazo.length);
+  g.jugadores.forEach((p, k) => {
+    if (k === i || p.fuera) return;
+    const kn = conocidasDe(k); let pos = 0;
+    p.mano = p.mano.map(c => kn.has(c.id) ? c : nuevas[k][pos++]);
+  });
+  g.jugadores.forEach(p => { p.nivel = 1; p.humano = false; });
+  return g;
 }
 // Reparte al azar lo que la jugadora i no puede ver, respetando lo que sí sabe
 function determinizar(i, aleat) {
+  if (TX.sesgo !== 1 || TX.atrae !== 1) return determinizarSesgada(i, aleat);
   const g = clonarG();
   const conocidasDe = k => new Set((G.conocidas[k] || []).map(c => c.id));
   const ocultas = [];
@@ -458,5 +515,5 @@ function tiradaDesdeOtroHilo(datos) {
   return { id: d.carta.id, cierra: !!d.cierra };
 }
 
-if (typeof module !== "undefined") module.exports = { tiradaDesdeOtroHilo, AN_STATS: typeof AN_STATS !== "undefined" ? AN_STATS : null, PD, MANIAS, EP, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
+if (typeof module !== "undefined") module.exports = { determinizarX: (i, a) => determinizar(i, a), tiradaDesdeOtroHilo, AN_STATS: typeof AN_STATS !== "undefined" ? AN_STATS : null, PD, MANIAS, EP, maniaDe, mezclaHojear, barajarComoMesa, recogerCartas, cortarYRepartir, rndCripto, tiradaExpertaX: (i,m,p)=>tiradaExperta(i,m,p), semilla, TX, repartirExp: repartir,  S, DEF, analizar, colgar, esChinchon, nuevaPartida, repartir, robar, tirar, cerrar, iaRobo, iaTirada, simularHastaFinal, get G() { return G; }, setS: o => Object.assign(S, o), valor, nombreCarta, puedeCerrarCon, mejorCierre, mejorTirada, activos, comprobarFin };
 
