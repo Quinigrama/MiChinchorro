@@ -113,6 +113,7 @@ function tirarYo(id) {
     sel = null; nueva = null; pistaId = null; volteada = null; mensaje(`Has tirado ${nombreCarta(c)}`); pintar(true);
     return enviarAccion({ tipo: 'tirar', id });
   }
+  relojParar();
   reg('T', YO, c); tirar(YO, id); G.ultimoTira = YO; if (ONLINE) pendEv.push({ t: 'tira', i: YO, carta: c }); sel = null; nueva = null; pistaId = null; volteada = null;
   G.jugadores[YO].ultimo = '';
   mensaje(`Has tirado ${nombreCarta(c)}`);
@@ -126,6 +127,7 @@ function cerrarYo(id) {
   if (id === G.cogida || !puedeCerrarCon(analizar(resto))) { enderezar(); return aviso('Todavía no puedes cerrar con esa carta'); }
   clearTimeout(tVuelta); volteada = null; sel = null;
   if (ONLINE && ONLINE.rol === 'invitado') { G.jugadores[YO].mano = G.jugadores[YO].mano.filter(x => x.id !== id); G.turno = -1; pintar(); mensaje('¡Cierras! 🎉'); return enviarAccion({ tipo: 'cerrar', id }); }
+  relojParar();
   reg('C', YO);
   const res = cerrar(YO, id);
   finMano(res, alguna('tuCierras', {}, true));

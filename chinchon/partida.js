@@ -221,10 +221,11 @@ function avanzar() {
   if (G.jugadores[G.turno].humano) {
     if (G.fase === 'robar') { mensaje('Te toca: coge del mazo o del montón 👇', true); vibrar('turno'); }
     else mensaje('Arrastra al montón la carta que tiras', true);
+    relojEmpezar(t);
     setTimeout(() => { if (t === token && miTurno()) alguna('quienJuega', {}, true); }, 20000);
     setTimeout(() => { if (t === token && miTurno()) alguna('prisa', {}, true); }, 40000);
     return;
   }
-  setTimeout(() => { if (t === token) turnoIA(t); }, ESPERA() * 0.6);
+  setTimeout(() => { if (t === token) turnoIA(t); }, relampago() ? RELAMPAGO.antesTurno : ESPERA() * 0.6);
 }
 

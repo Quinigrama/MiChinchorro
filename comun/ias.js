@@ -189,12 +189,12 @@ async function turnoIA(t) {
   p.ultimo = deDesc ? 'Cogió ' + nombreCarta(c) : 'Robó del mazo';
   mensaje(deDesc ? `${p.nombre} coge ${nombreCarta(c)}` : `${p.nombre} roba del mazo`);
   // del montón se ve la carta; del mazo va boca abajo
-  const vuelo = volar(origen, avatarDe(i), deDesc ? htmlCarta(c) : dorsoHTML, VUELO());
+  const vuelo = volar(origen, avatarDe(i), deDesc ? htmlCarta(c) : dorsoHTML, relampago() ? (deDesc ? RELAMPAGO.roboMonton : RELAMPAGO.roboMazo) : VUELO());
   G.manoOculta = i; pintar(); // el montón ya enseña la carta de debajo
   if (ONLINE) pendEv.push({ t: 'roba', i, desc: deDesc, carta: deDesc ? c : null });
   await vuelo; G.manoOculta = null; if (t !== token) return;
   pintar();
-  await espera(ESPERA() * 0.7); if (t !== token) return;
+  await espera(relampago() ? (deDesc ? RELAMPAGO.trasMonton : RELAMPAGO.trasMazo) : ESPERA() * 0.7); if (t !== token) return;
   }
   const d = esIA(p.nivel) ? await iaTiradaAsync(i, t) : await iaTiradaHilo(i);
   if (t !== token) return;
@@ -212,7 +212,7 @@ async function turnoIA(t) {
     }
     return finMano(res, habla);
   }
-  await volar(avatarDe(i), cartaMonton(), htmlCarta(d.carta), VUELO()); if (t !== token) return;
+  await volar(avatarDe(i), cartaMonton(), htmlCarta(d.carta), relampago() ? RELAMPAGO.tirada : VUELO()); if (t !== token) return;
   reg('T', i, d.carta); tirar(i, d.carta.id); G.ultimoTira = i;
   if (ONLINE) pendEv.push({ t: 'tira', i, carta: d.carta });
   if (!d.carta.j && d.carta.r >= 10) decir(i, 'figura', { c: nombreCarta(d.carta), rey: d.carta.r === 12 });
@@ -227,7 +227,7 @@ async function turnoIA(t) {
   p.ultimo += ' y tiró ' + nombreCarta(d.carta);
   mensaje(`${p.nombre} tira ${nombreCarta(d.carta)}${d.motivo ? ` · ${d.ico || '✨'} «${gemEsc(d.motivo)}»` : ''}`);
   pintar(true);
-  await espera(ESPERA() * 0.8); if (t === token) avanzar();
+  await espera(relampago() ? RELAMPAGO.trasTirada : ESPERA() * 0.8); if (t === token) avanzar();
 }
 
 function manoNula() {

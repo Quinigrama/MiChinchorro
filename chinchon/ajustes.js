@@ -17,6 +17,7 @@ const OPC = [
   { k: 'nivel', t: 'Dificultad de todos los rivales', op: [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil'], [3, 'Experta 🧠']] },
   { k: 'manias', t: 'Manías de los personajes 🎭 (Andrés prudente, Lucas arriesgado, Matilde la ojo avizor, Elvira la estratega)', op: [[true, 'Sí'], [false, 'No, todos de libro']] },
   { k: 'velocidad', t: 'Velocidad de los rivales', op: [[0, 'Despacio'], [1, 'Normal'], [2, 'Rápido']] },
+  { k: 'reloj', t: 'Partida rápida ⏱️ (reloj para tu turno y rivales relámpago; no en mesas online)', op: [[0, 'No'], [8, '8 s por turno'], [5, '5 s por turno'], ['ajedrez', '♟️ Ajedrez: 2 min + 2 s']] },
   { k: 'charla', t: 'Comentarios de los personajes 💬', op: [[0, 'No'], [1, 'Pocos'], [2, 'Muchos']] },
   { k: 'reparto', t: 'Ver barajar y repartir', op: [[2, 'Siempre'], [1, 'Solo al empezar'], [0, 'No']] },
   { k: 'barajado', t: 'Forma de barajar', op: [['real', '7 mezclas de verdad'], ['azar', 'Rápido (3 vueltas)']] },
