@@ -14,7 +14,7 @@ function relojCaja() {
   if (!el) {
     el = document.createElement('div');
     el.id = 'relojPartida';
-    el.style.cssText = 'position:fixed;z-index:60;' +
+    el.style.cssText = 'position:fixed;z-index:15;' +   // por debajo de las ventanas (velo: 20) y avisos (30)
       'background:#1b1b1b;color:#fff;border-radius:14px;padding:3px 12px 5px;font-weight:800;font-size:20px;border:2px solid #f3c44f;' +
       'min-width:96px;text-align:center;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.4);display:none';
     el.innerHTML = '<div id="relojNum">⏱️ 5</div><div style="height:5px;background:rgba(255,255,255,.2);border-radius:3px;margin-top:3px">' +
@@ -24,6 +24,27 @@ function relojCaja() {
   return el;
 }
 function relojOcultar() { const el = document.getElementById('relojPartida'); if (el) el.style.display = 'none'; }
+function relojFmt(seg) { return `♟️ ${Math.floor(seg / 60)}:${String(Math.floor(seg % 60)).padStart(2, '0')}`; }
+function relojColocar() {
+  const msj = document.getElementById('mensaje'), caja = document.getElementById('relojPartida');
+  if (msj && caja) { const r = msj.getBoundingClientRect(); caja.style.left = Math.max(4, r.right - caja.offsetWidth - 8) + 'px'; caja.style.top = Math.max(4, r.top - caja.offsetHeight * 0.45) + 'px'; }
+}
+// Modo ajedrez: mientras juegan las demás, tu reloj se ve quieto (y un poco apagado) con lo que te queda
+function relojMostrarQuieto() {
+  if (relojModo() !== 'ajedrez' || !G || G.terminada || relojT) return;
+  const msj = document.getElementById('mensaje');
+  if (!msj || !msj.offsetParent) return relojOcultar();          // no estás en la mesa
+  const caja = relojCaja(), seg = G.relojBanco == null ? RELOJ_BANCO : G.relojBanco;
+  caja.style.display = 'block'; caja.style.opacity = '0.6';
+  document.getElementById('relojNum').textContent = relojFmt(seg);
+  const b = document.getElementById('relojBarra'); b.style.width = Math.min(100, 100 * seg / RELOJ_BANCO) + '%'; b.style.background = '#9e9e9e';
+  relojColocar();
+}
+// Vigía: muestra u oculta el reloj quieto según dónde estés (mesa, menú, fin de partida)
+setInterval(() => {
+  if (relojT) return;
+  if (relojModo() === 'ajedrez' && G && !G.terminada) relojMostrarQuieto(); else relojOcultar();
+}, 400);
 
 // Empieza tu turno (lo llama avanzar)
 function relojEmpezar(t) {
@@ -38,14 +59,12 @@ function relojEmpezar(t) {
   } else seg = +m;
   relojTurno = t; relojFin = performance.now() + seg * 1000; relojTick = 0;
   const total = m === 'ajedrez' ? Math.max(seg, 30) : seg;
-  const caja = relojCaja(); caja.style.display = 'block';
+  const caja = relojCaja(); caja.style.display = 'block'; caja.style.opacity = '1';
   const pintarR = () => {
     const quedan = Math.max(0, (relojFin - performance.now()) / 1000);
-    const txt = m === 'ajedrez' ? `♟️ ${Math.floor(quedan / 60)}:${String(Math.floor(quedan % 60)).padStart(2, '0')}` : `⏱️ ${Math.ceil(quedan)}`;
+    const txt = m === 'ajedrez' ? relojFmt(quedan) : `⏱️ ${Math.ceil(quedan)}`;
     document.getElementById('relojNum').textContent = txt;
-    // pegado a la esquina de arriba a la derecha del mensaje «Te toca…», que es donde miras en tu turno
-    const msj = document.getElementById('mensaje'), caja = document.getElementById('relojPartida');
-    if (msj && caja) { const r = msj.getBoundingClientRect(); caja.style.left = Math.max(4, r.right - caja.offsetWidth - 8) + 'px'; caja.style.top = Math.max(4, r.top - caja.offsetHeight * 0.45) + 'px'; }
+    relojColocar();   // pegado a la esquina del mensaje «Te toca…», que es donde miras en tu turno
     const b = document.getElementById('relojBarra');
     b.style.width = Math.min(100, 100 * quedan / total) + '%';
     b.style.background = quedan <= 2 ? '#e53935' : quedan <= 4 ? '#ffb300' : '#4caf50';
@@ -64,7 +83,7 @@ function relojParar(guardarBanco = true) {
   if (relojT) { clearInterval(relojT); relojT = null; }
   if (guardarBanco && relojModo() === 'ajedrez' && G && relojFin) G.relojBanco = Math.max(0, (relojFin - performance.now()) / 1000);
   relojFin = 0;
-  relojOcultar();
+  if (relojModo() === 'ajedrez') relojMostrarQuieto(); else relojOcultar();
 }
 // Se acabó el tiempo: juega por ti lo más neutro
 async function relojAgotado(t) {
