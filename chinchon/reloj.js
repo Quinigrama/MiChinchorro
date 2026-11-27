@@ -15,19 +15,38 @@ function relojCaja() {
     el = document.createElement('div');
     el.id = 'relojPartida';
     el.style.cssText = 'position:fixed;z-index:15;' +   // por debajo de las ventanas (velo: 20) y avisos (30)
-      'background:#1b1b1b;color:#fff;border-radius:14px;padding:3px 12px 5px;font-weight:800;font-size:20px;border:2px solid #f3c44f;' +
-      'min-width:96px;text-align:center;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.4);display:none';
-    el.innerHTML = '<div id="relojNum">⏱️ 5</div><div style="height:5px;background:rgba(255,255,255,.2);border-radius:3px;margin-top:3px">' +
+      'background:#1b1b1b;color:#fff;border-radius:14px;padding:5px 6px 7px;font-weight:800;font-size:20px;line-height:1.15;border:2px solid #f3c44f;' +
+      'box-sizing:border-box;text-align:center;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.4);display:none';
+    el.innerHTML = '<div id="relojIco" style="font-size:.9em">⏱️</div><div id="relojNum" style="font-variant-numeric:tabular-nums">5</div><div style="height:5px;background:rgba(255,255,255,.2);border-radius:3px;margin-top:4px">' +
       '<div id="relojBarra" style="height:100%;width:100%;background:#4caf50;border-radius:3px"></div></div>';
     document.body.appendChild(el);
   }
   return el;
 }
 function relojOcultar() { const el = document.getElementById('relojPartida'); if (el) el.style.display = 'none'; }
-function relojFmt(seg) { return `♟️ ${Math.floor(seg / 60)}:${String(Math.floor(seg % 60)).padStart(2, '0')}`; }
+function relojFmt(seg) { return `${Math.floor(seg / 60)}:${String(Math.floor(seg % 60)).padStart(2, '0')}`; }
+// A la derecha del montón, en el hueco libre de la mesa, centrado en altura con las cartas.
+// Si no cabe (pantallas muy estrechas), en la esquina del mensaje «Te toca…».
 function relojColocar() {
-  const msj = document.getElementById('mensaje'), caja = document.getElementById('relojPartida');
-  if (msj && caja) { const r = msj.getBoundingClientRect(); caja.style.left = Math.max(4, r.right - caja.offsetWidth - 8) + 'px'; caja.style.top = Math.max(4, r.top - caja.offsetHeight * 0.45) + 'px'; }
+  const caja = document.getElementById('relojPartida'), mon = document.getElementById('mDesc');
+  if (!caja) return;
+  // se mide la caja del montón (no la carta, que a veces está volando y no se puede medir)
+  const rm = mon ? mon.getBoundingClientRect() : null, carta = mon && mon.querySelector('.carta, .vacio');
+  const rc = carta ? carta.getBoundingClientRect() : null;
+  const r = rm && rm.width ? { right: rm.right, top: rm.top, width: rm.width, height: rc && rc.height ? rc.height : rm.height * 0.85 } : null;
+  const hueco = r ? window.innerWidth - r.right : 0;
+  const SEP = 16, BORDE = 6;                               // aire con el montón y con el borde de la pantalla
+  if (r && r.width && hueco - SEP - BORDE >= 54) {
+    const w = Math.min(84, hueco - SEP - BORDE);
+    caja.style.width = w + 'px';
+    caja.style.fontSize = w >= 76 ? '20px' : w >= 64 ? '18px' : '16px';   // en pantallas estrechas, más pequeño
+    caja.style.left = (r.right + SEP + (hueco - SEP - BORDE - w) / 2) + 'px';
+    caja.style.top = (r.top + r.height / 2 - caja.offsetHeight / 2) + 'px';
+    return;
+  }
+  const msj = document.getElementById('mensaje');
+  caja.style.width = ''; caja.style.fontSize = '22px';
+  if (msj) { const m = msj.getBoundingClientRect(); caja.style.left = Math.max(4, m.right - caja.offsetWidth - 8) + 'px'; caja.style.top = Math.max(4, m.top - caja.offsetHeight * 0.45) + 'px'; }
 }
 // Modo ajedrez: mientras juegan las demás, tu reloj se ve quieto (y un poco apagado) con lo que te queda
 function relojMostrarQuieto() {
@@ -36,6 +55,7 @@ function relojMostrarQuieto() {
   if (!msj || !msj.offsetParent) return relojOcultar();          // no estás en la mesa
   const caja = relojCaja(), seg = G.relojBanco == null ? RELOJ_BANCO : G.relojBanco;
   caja.style.display = 'block'; caja.style.opacity = '0.6';
+  document.getElementById('relojIco').textContent = '♟️';
   document.getElementById('relojNum').textContent = relojFmt(seg);
   const b = document.getElementById('relojBarra'); b.style.width = Math.min(100, 100 * seg / RELOJ_BANCO) + '%'; b.style.background = '#9e9e9e';
   relojColocar();
@@ -62,7 +82,8 @@ function relojEmpezar(t) {
   const caja = relojCaja(); caja.style.display = 'block'; caja.style.opacity = '1';
   const pintarR = () => {
     const quedan = Math.max(0, (relojFin - performance.now()) / 1000);
-    const txt = m === 'ajedrez' ? relojFmt(quedan) : `⏱️ ${Math.ceil(quedan)}`;
+    const txt = m === 'ajedrez' ? relojFmt(quedan) : `${Math.ceil(quedan)} s`;
+    document.getElementById('relojIco').textContent = m === 'ajedrez' ? '♟️' : '⏱️';
     document.getElementById('relojNum').textContent = txt;
     relojColocar();   // pegado a la esquina del mensaje «Te toca…», que es donde miras en tu turno
     const b = document.getElementById('relojBarra');

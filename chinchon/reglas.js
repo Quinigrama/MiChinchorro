@@ -7,7 +7,7 @@ const DEF = {
   jugadores: 4, baraja: 40, comodines: 0, nivel: 1, velocidad: 1, reloj: 0, raya: 0.20,
   limite: 100, maxSueltas: 1, maxPuntos: 5, figuras: 10, valorComodin: 25,
   reenganche: true, precioChinchon: 1, colgar: true, chinchonGana: true,
-  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', reverso: 'rojo', manias: true, niveles: null, genero: '', charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
+  ayudas: true, reparto: 2, barajado: 'real', vibrar: true, sonido: 1, tapete: 'verde', dibujo: 'A', reverso: 'rojo', manias: true, niveles: null, genero: '', charla: 2, naipes: 'clasicas', indices: true, nombre: '', nombres: 'Matilde, Elvira, Pepita', rivales: ['Matilde', 'Elvira', 'Pepita'], nivelDe: {}, avatar: null, perfilHecho: false
 };
 let S = Object.assign({}, DEF);
 // Azar criptográfico del navegador: cualquier orden de la baraja es posible e imprevisible

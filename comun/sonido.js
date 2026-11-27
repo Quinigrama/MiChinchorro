@@ -13,6 +13,9 @@ function aplicarTema() {
   st.setProperty('--tapete0', t[0]); st.setProperty('--tapete', t[1]); st.setProperty('--tapete2', t[2]);
   st.setProperty('--dorso1', r[0]); st.setProperty('--dorso2', r[1]);
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = t[2];
+  const cl = document.documentElement.classList;   // dibujo del tapete: A (liso), B, C, D
+  ['dib-B', 'dib-C', 'dib-D'].forEach(c => cl.remove(c));
+  if (['B', 'C', 'D'].includes(PREF.dibujo)) cl.add('dib-' + PREF.dibujo);
 }
 aplicarTema();
 /* ---------- Sonidos (sintetizados: sin archivos) ---------- */

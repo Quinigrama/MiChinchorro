@@ -24,6 +24,7 @@ const OPC = [
   { k: 'vibrar', t: 'Vibración (al tocarte y cuando alguien cierra)', op: [[true, 'Sí'], [false, 'No']] },
   { k: 'sonido', t: 'Sonido 🔊', op: [[0, 'No'], [1, 'Efectos'], [2, 'Efectos y voces']] },
   { k: 'tapete', t: 'Tapete', op: [['verde', '🟩 Verde'], ['azul', '🟦 Azul'], ['granate', '🟥 Granate'], ['madera', '🟫 Madera'], ['noche', '⬛ Noche']] },
+  { k: 'dibujo', t: 'Dibujo del tapete (oros, copas, espadas y bastos)', op: [['A', 'A · Liso'], ['B', 'B · Muy suave'], ['C', 'C · Suave'], ['D', 'D · Marcado']] },
   { k: 'reverso', t: 'Reverso de las cartas', op: [['rojo', '🟥 Rojo'], ['azul', '🟦 Azul'], ['verde', '🟩 Verde'], ['morado', '🟪 Morado'], ['negro', '⬛ Negro']] },
   { k: 'ayudas', t: 'Ayudas (avisos y puntos sueltos)', op: [[true, 'Sí'], [false, 'No']] },
   { h: 'Dinero y puntos' },
