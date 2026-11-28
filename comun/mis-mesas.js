@@ -28,7 +28,7 @@ async function pintarMisMesas() {
     const act = m.actividad || m.creada || 0;
     if (m.anfitrion === uid && act && ahora - act > DIAS_CADUCA * 864e5) { red.borrarMesa(m.codigo).catch(() => {}); lista.splice(lista.indexOf(m), 1); }
   }
-  lista = lista.filter(m => !ocultas.has(m.codigo)).sort((a, b) => (b.actividad || b.creada || 0) - (a.actividad || a.creada || 0));
+  lista = lista.filter(m => !ocultas.has(m.codigo) && !(m.reglas && m.reglas.juego && m.reglas.juego !== 'chinchon')).sort((a, b) => (b.actividad || b.creada || 0) - (a.actividad || a.creada || 0));
   if (!$('listaMesas')) return;
   if (!lista.length) { $('listaMesas').innerHTML = '<div class="nota">Aún no tienes mesas. Crea una abajo o siéntate con un código 👇</div>'; return; }
   $('listaMesas').innerHTML = lista.map(m => {
@@ -70,6 +70,9 @@ async function abrirMesa(c) {
   let m = null;
   try { m = await red.leer(c); } catch (e) { return aviso('No se pudo mirar la mesa 📵'); }
   if (!m || m.cancelada) { olvidarMesa(c); if (LS.get('mc-online', {}) && (LS.get('mc-online', {}) || {}).codigo === c) LS.del('mc-online'); if (!$('online').classList.contains('oculto')) pantallaOnline(); return aviso('Esa mesa ya no existe'); }
+  // las mesas de otros juegos (el julepe de MisNaipes) se abren en su app
+  if (m.reglas && m.reglas.juego === 'julepe') return ventana(`<h2>Esa mesa es de julepe 🂠</h2><div class="sub">La mesa ${c} es del julepe de MisNaipes.</div>`,
+    [{ t: '🂠 Abrirla en MisNaipes', f: () => { location.href = '../MisNaipes/julepe/?mesa=' + c; } }, { t: 'No', clase: 'no' }]);
   const uid = miUid(), mia = m.anfitrion === uid;
   const estoy = !!(m.publico && m.publico.jugadores && m.publico.jugadores.some(j => j.uid === uid));
   if (mia) {
