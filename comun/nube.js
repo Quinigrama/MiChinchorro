@@ -38,6 +38,8 @@ async function subir() {
   const ref = fb.fs.doc(fb.db, 'jugadores', usuario.uid), yo = miAparato();
   let previo = null; try { const s = await fb.fs.getDoc(ref); previo = s.exists() ? s.data() : null; } catch (e) {}
   const doc = window.mezclarCuenta(previo, yo);
+  // lo de otros juegos de la misma cuenta (p. ej. «julepe», de MisNaipes) se conserva tal cual
+  if (previo) for (const k of Object.keys(previo)) if (!(k in doc) && k !== 'actualizado') doc[k] = previo[k];
   await fb.fs.setDoc(ref, Object.assign(doc, { actualizado: fb.fs.serverTimestamp() }));
   window.__cuenta = doc.aparatos; window.dispatchEvent(new CustomEvent('cuenta'));
 }
